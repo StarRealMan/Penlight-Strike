@@ -8,6 +8,8 @@
 高得点を目指して、ゲームと楽曲をお楽しみください！
 English version of README is available [here](./README_en.md).
 
+### [Play on Itchio](https://starydyxyz.itch.io/penlight-strike) | [Watch Demo Video](https://www.youtube.com/watch?v=NQfmGNHrg-c)
+
 ![penlight strike](./assets/welcome.png)
 
 ## 使用方法
