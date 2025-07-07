@@ -1,0 +1,13 @@
+/* Style Entry File */
+
+@import url('./base.css');
+
+@import url('./welcome.css');
+
+@import url('./song-selection.css');
+
+@import url('./tutorial.css');
+
+@import url('./player.css'); 
+
+@import url('./result.css'); 

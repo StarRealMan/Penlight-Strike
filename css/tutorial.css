@@ -1,0 +1,320 @@
+/* tutorial page styles */
+
+#tutorial-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: url('../images/starrysky.png') no-repeat center center fixed;
+  background-size: cover;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  z-index: 10;
+}
+
+#tutorial-page.hidden {
+  display: none;
+}
+
+.tutorial-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+}
+
+.tutorial-back-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #ffffff;
+  font-size: 1.2rem;
+}
+
+.tutorial-back-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.language-toggle {
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 25px;
+  padding: 0.25rem;
+}
+
+.lang-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 20px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  font-family: "Kosugi Maru", "Rubik", sans-serif;
+  font-weight: 800;
+}
+
+.lang-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.lang-btn:hover {
+  color: #ffffff;
+}
+
+.tutorial-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.tutorial-title {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #ffffff;
+  font-weight: bold;
+  font-family: "Kosugi Maru", "Rubik", sans-serif;
+}
+
+.tutorial-main {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.tutorial-text {
+  flex: 1;
+  max-width: 500px;
+}
+
+.tutorial-step {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.tutorial-step.hidden {
+  opacity: 0;
+  display: none;
+}
+
+.tutorial-step p {
+  font-size: 1.8rem;
+  font-family: "Kosugi Maru", "Rubik", sans-serif;
+  font-weight: 500;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.tutorial-gif {
+  flex: 1;
+  max-width: 500px;
+  display: flex;
+  justify-content: center;
+}
+
+.tutorial-video-container {
+  width: 100%;
+  max-width: 400px;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.tutorial-video-container.hidden {
+  opacity: 0;
+  display: none;
+}
+
+.tutorial-video-container img,
+.tutorial-video-container video {
+  width: 100%;
+  height: auto;
+  border-radius: 15px;
+}
+
+.gif-placeholder {
+  width: 100%;
+  height: 300px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+}
+
+.gif-placeholder i {
+  font-size: 3rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 1rem;
+}
+
+.gif-placeholder p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.tutorial-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 0;
+  margin-top: auto;
+}
+
+.page-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #ffffff;
+  font-size: 1.2rem;
+}
+
+.page-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.page-btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: none;
+}
+
+.page-info {
+  font-size: 1.2rem;
+  font-family: "Rubik", sans-serif;
+  color: #ffffff;
+  font-weight: bold;
+  min-width: 60px;
+  text-align: center;
+}
+
+.page-info::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.3) 50%, 
+    transparent 100%
+  );
+  margin-top: 0.5rem;
+}
+
+/* responsive design */
+
+@media (max-width: 1024px) {
+  .tutorial-main {
+    flex-direction: column;
+    gap: 3rem;
+  }
+  
+  .tutorial-text, .tutorial-gif {
+    max-width: 100%;
+  }
+  
+  .tutorial-gif {
+    order: -1;
+  }
+}
+
+@media (max-height: 800px) {
+  .tutorial-header {
+    padding: 1.2rem 1.5rem;
+  }
+  
+  .tutorial-back-btn,
+  .page-btn {
+    width: 45px;
+    height: 45px;
+    font-size: 1.1rem;
+  }
+  
+  .tutorial-title {
+    font-size: 2rem;
+  }
+  
+  .tutorial-step {
+    margin-bottom: 1rem;
+  }
+  
+  .tutorial-step p {
+    font-size: 1.5rem;
+  }
+  
+  .tutorial-gif {
+    max-width: 350px;
+  }
+}
+
+@media (max-height: 700px) {
+  .tutorial-header {
+    padding: 1rem 1.5rem;
+  }
+  
+  .tutorial-back-btn,
+  .page-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .tutorial-header {
+    padding: 1rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .tutorial-header {
+    padding: 0.8rem 1rem;
+  }
+  
+  .tutorial-back-btn,
+  .page-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+} 

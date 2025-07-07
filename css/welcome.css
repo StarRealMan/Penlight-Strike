@@ -1,0 +1,367 @@
+/* welcome page styles */
+
+.welcome-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('../images/starrysky.png') no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 1000;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.8s ease;
+}
+
+.welcome-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.welcome-content {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+}
+
+.main-center-content {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  z-index: 2;
+}
+
+.logo-section {
+  margin-bottom: 3rem;
+}
+
+.game-title {
+  font-size: 4rem;
+  font-weight: bold;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+  animation: titleGlow 3s ease-in-out infinite alternate;
+  font-family: "Audiowide", serif;
+}
+
+.title-decoration {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.title-decoration i {
+  font-size: 2rem;
+  color: rgba(255, 255, 255, 0.8);
+  animation: iconFloat 2s ease-in-out infinite;
+}
+
+.title-decoration i:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.title-decoration i:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.title-decoration i:nth-child(3) {
+  animation-delay: 1s;
+}
+
+.welcome-message {
+  margin-bottom: 0;
+  min-height: 120px;
+  position: relative;
+  width: 100%;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 1rem 0;
+  font-weight: 800;
+  font-family: "Kosugi Maru", serif;
+}
+
+.instruction,
+.loading-section
+{
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3rem;
+  margin-left: auto;
+  margin-right: auto;
+  z-index: 3;
+}
+
+.welcome-animation{
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6rem;
+  margin-left: auto;
+  margin-right: auto;
+  z-index: 3;
+}
+
+.loading-section {
+  width: 100%;
+  text-align: center;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+  pointer-events: auto;
+}
+
+.loading-section.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.welcome-loading-text {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+  font-family: "Kosugi Maru", serif;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.progress-container {
+  width: 400px;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+}
+
+.instruction {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-family: "Kosugi Maru", serif;
+  animation: pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.instruction.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.welcome-animation {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.welcome-animation.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: pulseRing 2s ease-out infinite;
+}
+
+.pulse-ring-delay {
+  animation-delay: 1s;
+}
+
+/* animation */
+@keyframes titleGlow {
+  0% {
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+  }
+  100% {
+    text-shadow: 0 0 50px rgba(255, 255, 255, 0.8), 0 0 60px rgba(255, 255, 255, 0.4);
+  }
+}
+
+@keyframes iconFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* responsive design */
+@media (max-width: 768px) {
+  .game-title {
+    font-size: 3rem;
+  }
+  .subtitle {
+    font-size: 1.2rem;
+  }
+  .title-decoration {
+    gap: 1.5rem;
+  }
+  .title-decoration i {
+    font-size: 1.5rem;
+  }
+  .main-center-content {
+    min-height: 200px;
+  }
+}
+
+.credit-section {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1002;
+}
+
+.credit-content {
+  padding: 15px 20px;
+  max-width: 400px;
+}
+
+.credit-content p {
+  margin: 5px 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  font-family: "WDXL Lubrifont JP N", sans-serif;
+}
+
+.credit-content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 15px 5px; /* 列间距15px，行间距5px */
+  font-family: "WDXL Lubrifont JP N", sans-serif;
+}
+
+.credit-content td {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  padding: 0;
+  vertical-align: top;
+}
+
+.credit-content td:first-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.credit-content td:last-child {
+  text-align: left;
+}
+
+.credit-content strong {
+  color: rgba(255, 255, 255, 1);
+  font-weight: 600;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+@media (max-height: 600px) {
+  .game-title {
+    font-size: 2.5rem;
+  }
+  .logo-section {
+    margin-bottom: 2rem;
+  }
+  .main-center-content {
+    min-height: 120px;
+  }
+  .welcome-message {
+    min-height: 60px;
+  }
+  .credit-section {
+    bottom: 10px;
+    right: 10px;
+  }
+  .credit-content {
+    padding: 10px 15px;
+    max-width: 350px;
+  }
+  .credit-content p {
+    font-size: 14px;
+  }
+  .credit-content table {
+    border-spacing: 12px 4px; /* 在小屏幕上稍微减小间距 */
+  }
+  .credit-content td {
+    font-size: 14px;
+  }
+  .credit-section {
+    bottom: 15px;
+    right: 15px;
+  }
+  .credit-content {
+    max-width: 300px;
+    padding: 12px 16px;
+  }
+} 

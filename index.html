@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Penlight Strike</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css"/>
+    <link rel="stylesheet" href="./css/main.css" />
+    <link rel="icon" href="icon/favicon.ico" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+
+    <!-- welcome page to show credits and let user interact to start music preview -->
+    <div id="welcome-page" class="welcome-screen">
+      <div class="welcome-content">
+        <div class="main-center-content">
+          <div class="logo-section">
+            <h1 class="game-title">Penlight Strike</h1>
+            <div class="title-decoration">
+              <i class="fas fa-music"></i>
+              <i class="fas fa-microphone"></i>
+              <i class="fas fa-headphones"></i>
+            </div>
+          </div>
+          <div class="welcome-message">
+            <p class="subtitle">キラキラのリリックに、ペンライトでエールを届けよう！</p>
+            <p class="subtitle">☆星空ライブ、まもなくスタート!☆</p>
+            <br>
+          </div>
+        </div>
+        <p class="instruction" style="display: none;">画面をタップして応援を始めよう！</p>
+        <div class="welcome-animation" style="display: none;">
+          <div class="pulse-ring"></div>
+          <div class="pulse-ring pulse-ring-delay"></div>
+        </div>
+        <div class="loading-section">
+          <p class="welcome-loading-text">リソースを読み込んでいます...</p>
+          <div class="progress-container">
+            <div class="progress-bar"></div>
+          </div>
+        </div>
+      </div>
+      <div class="credit-section">
+        <div class="credit-content">
+          <table>
+            <tr>
+              <td><strong>Illustration by:</strong></td>
+              <td>百鬼伏羲</td>
+            </tr>
+            <tr>
+              <td><strong>Tuning by:</strong></td>
+              <td>杰克蔚博</td>
+            </tr>
+            <tr>
+              <td><strong>Translation by:</strong></td>
+              <td>Haru</td>
+            </tr>
+            <tr>
+              <td><strong>Developed by:</strong></td>
+              <td>星空StarrySky</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- song selection page to let user to navigate through songs and options -->
+    <div id="song-selection" class="hidden">
+      <div class="song-selection-header">
+        <button id="tutorial-btn" class="tutorial-button">
+          <i class="fas fa-question"></i>
+        </button>
+        <button id="random-song" class="random-button">
+          <i class="fas fa-dice"></i>
+        </button>
+      </div>
+      <div class="song-container">
+        <div class="song-display">
+          <div class="song-info">
+            <h2 class="song-title">ストリートライト</h2>
+            <!-- triple cover style -->
+            <div class="cover-carousel">
+              <div class="side-cover left-cover" id="prev-cover">
+                <img src="images/lonely.jpg" alt="Previous Song Cover">
+              </div>
+              <div class="main-cover" id="song-cover-container">
+                <img src="images/streetlight.jpg" alt="Song Cover" id="current-cover">
+                <button class="preview-toggle-btn" id="preview-toggle">
+                  <i class="fas fa-volume-up"></i>
+                </button>
+              </div>
+              <div class="side-cover right-cover" id="next-cover">
+                <img src="images/alifration.jpg" alt="Next Song Cover">
+              </div>
+            </div>
+            <div class="audio-spectrum" id="audio-spectrum">
+              <canvas id="spectrum-canvas" width="280" height="50"></canvas>
+            </div>
+            <!-- credit info -->
+            <div class="song-details">
+              <p><i class="fas fa-user"></i> 加賀(ネギシャワーP)</p>
+              <p><i class="fas fa-palette"></i> からながれ</p>
+              <p><i class="fas fa-microphone"></i> 初音ミク、鏡音リン、鏡音レン、巡音ルカ、KAITO、MEIKO</p>
+              <p><i class="fas fa-clock"></i> Duration: 3:16</p>
+              <p><i class="fas fa-tachometer-alt"></i> BPM: 117</p>
+            </div>
+            <!-- difficulty buttons -->
+            <div class="difficulty-buttons">
+              <button class="difficulty-btn easy">Easy</button>
+              <button class="difficulty-btn normal active">Normal</button>
+              <button class="difficulty-btn hard">Hard</button>
+            </div>
+            <!-- interaction mode toggle -->
+            <div class="interaction-mode-toggle">
+              <div class="toggle-container">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="glow-stick-mode" />
+                  <span class="toggle-slider">
+                    <span class="toggle-icon mouse-icon">
+                      <i class="fas fa-mouse-pointer"></i>
+                    </span>
+                    <span class="toggle-icon stick-icon">
+                      <i class="fas fa-magic"></i>
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- tutorial page to show tutorial pages -->
+    <div id="tutorial-page" class="hidden">
+      <div class="tutorial-header">
+        <button id="tutorial-back" class="tutorial-back-btn">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="language-toggle">
+          <button class="lang-btn active" data-lang="jp">日本語</button>
+          <button class="lang-btn" data-lang="en">English</button>
+        </div>
+      </div>
+      <div class="tutorial-content">
+        <h2 class="tutorial-title" data-jp="チュートリアル" data-en="Tutorial">チュートリアル</h2>
+        <div class="tutorial-main">
+          <div class="tutorial-text">
+            <div class="tutorial-step" data-page="1">
+              <p data-jp="ジャケットをタップして好きな楽曲を選んでね。決まったらもう一度タップして応援スタート！迷った時は右上のサイコロボタンでランダム選曲もできるよ♪ 試聴を止めたい時は、ジャケット右下のスピーカーボタンをタップしてね。" 
+                 data-en="Tap the covers on the side to browse different songs. When you've decided, tap the main cover to start fan chanting! Not sure which to choose? Tap the dice button on the top right for a random song! You can also tap the speaker icon at the bottom right of the center cover to pause the song preview.">
+                 ジャケットをタップして好きな楽曲を選んでね。決まったらもう一度タップして応援スタート！迷った時は右上のサイコロボタンでランダム選曲もできるよ♪ 試聴を止めたい時は、ジャケット右下のスピーカーボタンをタップしてね。
+              </p>
+            </div>
+            <div class="tutorial-step hidden" data-page="2">
+              <p data-jp="難易度選択ボタンで、自分にぴったりな難易度を選ぼう！カジュアルに楽しめるEasy？それとも挑戦したいHard？難易度によってライフ、ノーツの数、判定の厳しさが変わるよ。自分に合ったリズムを探してみよう！" 
+                 data-en="Tap the difficulty selection button below the covers to pick a level that suits you! Will you go for a casual Easy, or challenge yourself with Hard? Each difficulty comes with different HP, note counts, and timing judgments—try and find the rhythm that fits you best!">
+                 難易度選択ボタンで、自分にぴったりな難易度を選ぼう！カジュアルに楽しめるEasy？それとも挑戦したいHard？難易度によってライフ、ノーツの数、判定の厳しさが変わるよ。自分に合ったリズムを探してみよう！
+              </p>
+            </div>
+            <div class="tutorial-step hidden" data-page="3">
+              <p data-jp="もっと本格的に応援したい人は、自分のペンライトを持って「緑色」に切り替えてね。画面下のスイッチでペンライト追跡モードに変更すると、カメラが起動してペンライトの先端を追いかけてくれるよ！プログラムはフロントエンドで実行されるため、プライバシーを心配する必要はありません。マウスの代わりにペンライトで応援しよう！" 
+                 data-en="For a more immersive fan chanting experience, grab your penlight and switch it to green. Then toggle to Penlight Tracking Mode. Your camera will be activated and track your penlight. Since the program runs on the frontend, there's no need to worry about privacy issues. Get ready to chant by swinging your penlight!">
+                 もっと本格的に応援したい人は、自分のペンライトを持って「緑色」に切り替えてね。画面下のスイッチでペンライト追跡モードに変更すると、カメラが起動してペンライトの先端を追いかけてくれるよ！プログラムはフロントエンドで実行されるため、プライバシーを心配する必要はありません。マウスの代わりにペンライトで応援しよう！
+              </p>
+            </div>
+            <div class="tutorial-step hidden" data-page="4">
+              <p data-jp="応援が始まると、VOCALOIDソフトのようにノーツがピアノロールから流れてくるよ。落ちてしまう前にペンライトでタップしてスコアを稼ごう！ミクがペンライトを振るリズムに合わせないと判定されないから注意してね！" 
+                 data-en="Once the fan chanting begins, notes will shoot out from a piano roll just like in VOCALOID software. Strike them with your penlight before they fall to score points! But be careful—only hitting in time with Miku's rhythm will count!">
+                 応援が始まると、VOCALOIDソフトのようにノーツがピアノロールから流れてくるよ。落ちてしまう前にペンライトでタップしてスコアを稼ごう！ミクがペンライトを振るリズムに合わせないと判定されないから注意してね！
+              </p>
+            </div>
+            <div class="tutorial-step hidden" data-page="5">
+              <p data-jp="緑のノーツ（通常）に加えて、青いロングノーツ（連打）も登場するよ。さらに「！」マークがついた赤いノーツに当たるとライフが減ってしまうので、しっかり避けよう！" 
+                 data-en="In addition to the normal green notes, you'll also see blue notes that require multiple hits to clear. And watch out for red notes marked with a '!' —hitting those will lower your HP, so dodge carefully!">
+                 緑のノーツ（通常）に加えて、青いロングノーツ（連打）も登場するよ。さらに「！」マークがついた赤いノーツに当たるとライフが減ってしまうので、しっかり避けよう！
+              </p>
+            </div>
+            <div class="tutorial-step hidden" data-page="6">
+              <p data-jp="ノーツの中心を狙ってタップすれば、もっと高いスコアがもらえるよ！ノーツが出てない時でも、ミクの音楽に合わせてペンライトを振れば追加スコアがもらえるかも？全ノーツパーフェクトにして、フルコンボを目指そう！" 
+                 data-en="Hit the center of a note to score higher points! And even when no notes are appearing, you can keep swinging your penlight to Miku's music to earn bonus points. Don't let any note slip away—go for the full combo!">
+                 ノーツの中心を狙ってタップすれば、もっと高いスコアがもらえるよ！ノーツが出てない時でも、ミクの音楽に合わせてペンライトを振れば追加スコアがもらえるかも？全ノーツパーフェクトにして、フルコンボを目指そう！
+              </p>
+            </div>
+          </div>
+          <div class="tutorial-gif">
+            <div class="tutorial-video-container" data-page="1">
+              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+                <source src="videos/tutorial-0.mp4" type="video/mp4">
+              </video>
+            </div>
+            <div class="tutorial-video-container hidden" data-page="2">
+              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+                <source src="videos/tutorial-1.mp4" type="video/mp4">
+              </video>
+            </div>
+            <div class="tutorial-video-container hidden" data-page="3">
+              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+                <source src="videos/tutorial-2.mp4" type="video/mp4">
+              </video>
+            </div>
+            <div class="tutorial-video-container hidden" data-page="4">
+              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+                <source src="videos/tutorial-3.mp4" type="video/mp4">
+              </video>
+            </div>
+            <div class="tutorial-video-container hidden" data-page="5">
+              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+                <source src="videos/tutorial-4.mp4" type="video/mp4">
+              </video>
+            </div>
+            <div class="tutorial-video-container hidden" data-page="6">
+              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+                <source src="videos/tutorial-5.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+        </div>
+        <div class="tutorial-pagination">
+          <button id="prev-tutorial" class="page-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <span class="page-info">
+            <span id="current-page">1</span>/<span id="total-pages">3</span>
+          </span>
+          <button id="next-tutorial" class="page-btn">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- player page to show game UI and game area -->
+    <div id="player-page" class="hidden">
+      <!-- loading overlay -->
+      <div id="overlay">
+        <div class="loading-container">
+          <div class="miku-loading-animation">
+            <img src="images/miku-loading-0.png" class="miku-loading miku-loading-0" alt="Miku Loading">
+            <img src="images/miku-loading-1.png" class="miku-loading miku-loading-1" alt="Miku Loading">
+          </div>
+          <p class="loading-text"><span class="fas">&#xf254;</span> &nbsp; now loading &nbsp; ...</p>
+        </div>
+      </div>
+      <div id="header">
+        <button id="pause-btn" class="pause-btn">
+          <i class="fas fa-pause"></i>
+        </button>
+      </div>
+      <!-- background video to show shining stars -->
+      <video autoplay loop muted class="page-background-video" id="player-video-background">
+        <source src="videos/starrysky.mp4" type="video/mp4">
+      </video>
+      <!-- pause page to let user to pause and restart game -->
+      <div id="pause-modal" class="pause-modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+          <div class="modal-buttons">
+            <button id="exit-btn" class="modal-btn exit-btn">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Exit</span>
+            </button>
+            <button id="restart-btn" class="modal-btn restart-btn">
+              <i class="fas fa-redo"></i>
+              <span>Restart</span>
+            </button>
+            <button id="continue-btn" class="modal-btn continue-btn">
+              <i class="fas fa-play"></i>
+              <span>Continue</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- textalive media -->
+      <div id="media"></div>
+      <!-- game UI -->
+      <div class="game-ui hidden" id="game-ui">
+        <div class="health-display" id="health-display"></div>
+        <div class="fps-display" id="fps-display">
+          <div class="fps-number">60</div>
+          <div class="fps-text">FPS</div>
+        </div>
+        <div class="score-display">
+          <div class="score-integrated-container">
+            <div class="score-top-row">
+              <div class="score-progress-container">
+                <div class="score-progress-track"></div>
+                <div class="score-progress-fill grade-f"></div>
+                <div class="score-progress-marks">
+                  <div class="score-mark grade-c" title="Grade C - 200,000"></div>
+                  <div class="score-mark grade-b" title="Grade B - 400,000"></div>
+                  <div class="score-mark grade-a" title="Grade A - 600,000"></div>
+                  <div class="score-mark grade-s" title="Grade S - 800,000"></div>
+                </div>
+              </div>
+              <div class="grade-circle grade-f">
+                <div class="grade-display">F</div>
+              </div>
+            </div>
+            <div class="score-number-container">
+              <div class="score-number">0000000</div>
+            </div>
+          </div>
+        </div>
+        <div class="combo-display">
+          <div class="combo-background">
+            <div class="combo-content">
+              <div class="combo-number">0</div>
+              <div class="combo-text">COMBO</div>
+            </div>
+          </div>
+        </div>
+        <div class="character-display">
+          <img src="images/miku-low.png" class="character-img" id="miku-character" alt="Miku">
+          <div class="dialogue-box hidden" id="dialogue-box" style="display: none; opacity: 0;">
+            <div class="dialogue-text" id="dialogue-text"></div>
+          </div>
+        </div>
+        <!-- piano roll to shoot notes -->
+        <div class="piano-roll">
+          <img src="images/piano-white.png" class="piano-img piano-white" alt="Piano White Keys">
+          <img src="images/piano-black.png" class="piano-img piano-black" alt="Piano Black Keys">
+          <div class="piano-effects-layer" id="piano-effects-layer"></div>
+        </div>
+        <!-- game area for notes -->
+        <div class="game-area" id="game-area"></div>
+        <!-- various effects -->
+        <div class="effects-container" id="effects-container"></div>
+        <div class="mouse-trail-container" id="mouse-trail-container"></div>
+        <!-- game over blur overlay -->
+        <div class="game-over-overlay" id="game-over-overlay"></div>
+        <div class="hit-result-display" id="hit-result-display">
+          <div class="hit-result-text" id="hit-result-text"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- result page to show game result -->
+    <div id="result-page" class="hidden">
+      <div class="result-container">
+        <div class="result-top-buttons">
+          <button id="result-back-btn" class="result-back-btn">
+            <i class="fas fa-arrow-left"></i>
+          </button>
+          <button id="result-restart-btn" class="result-restart-btn">
+            <i class="fas fa-redo"></i>
+          </button>
+        </div>
+        <div class="result-stats">
+          <h3>Game Result</h3>
+          <div class="stat-item" id="stat-perfect-color">
+            <span class="stat-label">Perfect</span>
+            <span class="stat-value" id="stat-perfect">0</span>
+          </div>
+          <div class="stat-item" id="stat-great-color">
+            <span class="stat-label">Great</span>
+            <span class="stat-value" id="stat-great">0</span>
+          </div>
+          <div class="stat-item" id="stat-good-color">
+            <span class="stat-label">Good</span>
+            <span class="stat-value" id="stat-good">0</span>
+          </div>
+          <div class="stat-item" id="stat-bad-color">
+            <span class="stat-label">Bad</span>
+            <span class="stat-value" id="stat-bad">0</span>
+          </div>
+          <div class="stat-item" id="stat-miss-color">
+            <span class="stat-label">Miss</span>
+            <span class="stat-value" id="stat-miss">0</span>
+          </div>
+          <div class="stat-item" id="stat-max-combo-color">
+            <span class="stat-label">Max Combo</span>
+            <span class="stat-value" id="stat-max-combo">0</span>
+          </div>
+          <div class="stat-item" id="stat-hp-left-color">
+            <span class="stat-label">HP Left</span>
+            <span class="stat-value" id="stat-hp-left">0</span>
+          </div>
+        </div>
+        <div class="result-center">
+          <div class="result-grade grade-F" id="result-grade">F</div>
+          <div class="result-score" id="result-score">0</div>
+          <div class="result-achievement achievement-live-clear" id="result-achievement">
+            LIVE CLEAR
+          </div>
+        </div>
+        <div class="result-miku">
+          <img src="images/miku-low.png" class="miku-image" id="result-miku-img" alt="Miku">
+          <div class="miku-dialogue" id="result-miku-dialogue">
+            いいね！この調子でがんばって！
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- script to load external libraries -->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/textalive-app-api/dist/index.js"></script>
+
+    <script src="./js/welcome.js"></script>
+    <script src="./js/song-selection.js"></script>
+    <script src="./js/tutorial.js"></script>
+    <script src="./js/track.js"></script>
+    <script src="./js/player.js"></script>
+    <script src="./js/result.js"></script>
+    <script src="./js/main.js"></script>
+  </body>
+</html>

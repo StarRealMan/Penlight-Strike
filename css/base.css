@@ -1,0 +1,230 @@
+/* base styles */
+
+/* cursor styles */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  cursor: url('../images/cursor-default.png'), auto !important;
+}
+
+.clickable,
+.draggable,
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+.tutorial-button,
+.random-button,
+.difficulty-btn,
+.pause-btn,
+.modal-btn,
+.tutorial-back-btn,
+.lang-btn,
+.page-btn,
+.preview-toggle-btn,
+.toggle-switch,
+.side-cover,
+.main-cover,
+img[alt*="Cover"],
+#current-cover,
+#prev-cover,
+#next-cover,
+#song-cover-container,
+.clickable *,
+.draggable *,
+button *,
+a *,
+[role="button"] *,
+input[type="button"] *,
+input[type="submit"] *,
+input[type="reset"] *,
+.tutorial-button *,
+.random-button *,
+.difficulty-btn *,
+.pause-btn *,
+.modal-btn *,
+.tutorial-back-btn *,
+.lang-btn *,
+.page-btn *,
+.preview-toggle-btn *,
+.toggle-switch *,
+.side-cover *,
+.main-cover *,
+img[alt*="Cover"] *,
+#current-cover *,
+#prev-cover *,
+#next-cover *,
+#song-cover-container * {
+  cursor: url('../images/cursor-hover.png'), pointer !important;
+}
+
+*:active {
+  cursor: url('../images/cursor-click.png'), pointer !important;
+}
+
+.clickable:hover,
+.draggable:hover,
+button:hover,
+a:hover,
+[role="button"]:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover,
+input[type="reset"]:hover,
+.tutorial-button:hover,
+.random-button:hover,
+.difficulty-btn:hover,
+.pause-btn:hover,
+.modal-btn:hover,
+.tutorial-back-btn:hover,
+.lang-btn:hover,
+.page-btn:hover,
+.preview-toggle-btn:hover,
+.toggle-switch:hover,
+.side-cover:hover,
+.main-cover:hover,
+img[alt*="Cover"]:hover,
+#current-cover:hover,
+#prev-cover:hover,
+#next-cover:hover,
+#song-cover-container:hover {
+  cursor: url('../images/cursor-hover.png'), pointer !important;
+}
+
+button i,
+button span,
+.tutorial-button i,
+.random-button i,
+.difficulty-btn i,
+.pause-btn i,
+.modal-btn i,
+.modal-btn span,
+.tutorial-back-btn i,
+.lang-btn i,
+.page-btn i,
+.preview-toggle-btn i,
+.toggle-switch i,
+.toggle-switch span,
+.clickable i,
+.clickable span,
+.draggable i,
+.draggable span,
+a i,
+a span,
+[role="button"] i,
+[role="button"] span {
+  cursor: url('../images/cursor-hover.png'), pointer !important;
+  pointer-events: none;
+}
+
+button *,
+.tutorial-button *,
+.random-button *,
+.difficulty-btn *,
+.pause-btn *,
+.modal-btn *,
+.tutorial-back-btn *,
+.lang-btn *,
+.page-btn *,
+.preview-toggle-btn *,
+.toggle-switch *,
+.clickable *,
+.draggable *,
+a *,
+[role="button"] * {
+  cursor: url('../images/cursor-hover.png'), pointer !important;
+}
+
+/* global styles */
+body {
+  background: url('../images/starrysky.png') no-repeat center center fixed;
+  background-size: cover;
+  margin: 0;
+  padding: 0;
+  font-family: "Kosugi Maru", "Rubik", serif;
+  height: 100vh;
+  color: #ffffff;
+  overflow: hidden;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+canvas {
+  touch-action: none;
+}
+
+#media {
+  position: fixed;
+  left: 0;
+  background: #000c;
+  color: #fff;
+  z-index: 1;
+}
+
+#media.disabled > .textalive-media-wrapper {
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+/* animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@font-face {
+  font-family: "Audiowide";
+  src: url("../fonts/Audiowide-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Bitcount Grid Double";
+  src: url("../fonts/BitcountGridDouble-VariableFont_CRSV,ELSH,ELXP,slnt,wght.ttf") format("truetype");
+}
+
+
+@font-face {
+  font-family: "Cherry Bomb One";
+  src: url("../fonts/CherryBombOne-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Kosugi Maru";
+  src: url("../fonts/KosugiMaru-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Rubik";
+  src: url("../fonts/Rubik-VariableFont_wght.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Stalinist One";
+  src: url("../fonts/StalinistOne-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "WDXL Lubrifont JP N";
+  src: url("../fonts/WDXLLubrifontJPN-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Yusei Magic";
+  src: url("../fonts/YuseiMagic-Regular.ttf") format("truetype");
+}
