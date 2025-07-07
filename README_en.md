@@ -8,6 +8,8 @@ It also have a more immersive mode, where players can swing their penlight and c
 Try to achieve higher score and enjoy the game and songs!
 日本語版のリードミーは[こちら](./README_en.md)から入手できます。
 
+### [Play on Itchio](https://starydyxyz.itch.io/penlight-strike) | [Watch Demo Video](https://www.youtube.com/watch?v=NQfmGNHrg-c)
+
 ![penlight strike](./assets/welcome.png)
 
 ## Usage
