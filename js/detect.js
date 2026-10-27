@@ -111,10 +111,12 @@ async function detectGlowstickPosition(imageBitmap, width, height, returnDebugDa
   }
 
   isProcessing = true;
+  let inputTensor = null;
+  let heatmaps = null;
   
   try {
-    const inputTensor = preprocessImage(imageBitmap);
-    const heatmaps = loadedModel.predict(inputTensor);
+    inputTensor = preprocessImage(imageBitmap);
+    heatmaps = loadedModel.predict(inputTensor);
     const position = await extractGlowstickPosition(heatmaps, width, height);
     
     let debugData = null;
@@ -132,40 +134,39 @@ async function detectGlowstickPosition(imageBitmap, width, height, returnDebugDa
       });
     }
     
-    inputTensor.dispose();
-    heatmaps.dispose();
-    isProcessing = false;
-    
     return { position, debugData };
   } catch (error) {
-    isProcessing = false;
     return null;
+  } finally {
+    if (inputTensor) inputTensor.dispose();
+    if (heatmaps) heatmaps.dispose();
+    isProcessing = false;
   }
 }
 
 self.onmessage = async function(e) {
-  const { type, data } = e.data;
+  const { type, data, requestId } = e.data;
   
   switch (type) {
     case 'INIT':
       await loadKeypointModel();
       break;
       
-    case 'DETECT':
+    case 'DETECT': {
       const { imageBitmap, width, height, returnDebugData } = data;
-      const result = await detectGlowstickPosition(imageBitmap, width, height, returnDebugData);
-      
-      if (result) {
+      try {
+        const result = await detectGlowstickPosition(imageBitmap, width, height, returnDebugData);
         self.postMessage({
           type: 'DETECTION_RESULT',
-          data: {
-            position: result.position,
-            debugData: result.debugData
-          }
+          requestId,
+          data: result || { position: null, debugData: null }
         });
+      } finally {
+        imageBitmap.close();
       }
       break;
-      
+    }
+
     case 'DISPOSE':
       if (loadedModel) {
         loadedModel.dispose();

@@ -197,6 +197,10 @@ let cameraVideo = null;
 let glowstickWorker = null;
 let isGlowstickDetectionActive = false;
 let isWorkerProcessing = false;
+let glowstickFrameId = null;
+let glowstickRetryTimer = null;
+let glowstickRequestId = 0;
+let activeGlowstickRequest = null;
 let lastGlowstickTrailTime = 0;
 let glowstickModeActive = false;
 let lastGlowstickUpdateTime = 0;
@@ -249,15 +253,17 @@ async function initGlowstickDetection() {
 
   try {
     glowstickWorker = new Worker('js/detect.js');
+    const worker = glowstickWorker;
     glowstickKalmanFilter = new window.KalmanTracker();
     
     let modelLoaded = 0;
     let modelLoadError = null;
     glowstickWorker.onmessage = function(e) {
-      const { type, data } = e.data;
+      if (glowstickWorker !== worker) return;
+      const { type, data, requestId } = e.data;
       switch (type) {
         case 'DETECTION_RESULT':
-          handleGlowstickDetectionResult(data);
+          handleGlowstickDetectionResult(data, requestId);
           break;
         case 'MODEL_LOADED':
           modelLoaded = data.success;
@@ -303,67 +309,82 @@ async function startGlowstickDetection() {
   isGlowstickDetectionActive = true;
   
   createDebugInterface();
-  requestAnimationFrame(processGlowstickFrame);
+  scheduleGlowstickFrame();
 }
 
-function processGlowstickFrame() {
-  if (!isGlowstickDetectionActive || !cameraVideo || !glowstickWorker) {
-    setTimeout(() => {
-      requestAnimationFrame(processGlowstickFrame);
-    }, 100);
-    return;
+function scheduleGlowstickFrame(delay = 0) {
+  if (!isGlowstickDetectionActive || !cameraVideo || !glowstickWorker ||
+      glowstickFrameId !== null || glowstickRetryTimer !== null) return;
+  if (delay > 0) {
+    glowstickRetryTimer = setTimeout(() => {
+      glowstickRetryTimer = null;
+      scheduleGlowstickFrame();
+    }, delay);
+  } else {
+    glowstickFrameId = requestAnimationFrame(() => {
+      glowstickFrameId = null;
+      processGlowstickFrame();
+    });
   }
-  
+}
+
+async function processGlowstickFrame() {
+  if (!isGlowstickDetectionActive || !cameraVideo || !glowstickWorker) return;
   const videoWidth = cameraVideo.videoWidth;
   const videoHeight = cameraVideo.videoHeight;
-  
   if (videoWidth === 0 || videoHeight === 0) {
-    setTimeout(() => {
-      requestAnimationFrame(processGlowstickFrame);
-    }, 100);
+    scheduleGlowstickFrame(100);
     return;
   }
-  if (isWorkerProcessing) {
-    return;
-  }
+  if (isWorkerProcessing) return;
 
+  const worker = glowstickWorker;
+  const requestId = ++glowstickRequestId;
+  activeGlowstickRequest = requestId;
   isWorkerProcessing = true;
-  const startTime = performance.now();
-  
-  createImageBitmap(cameraVideo)
-    .then(imageBitmap => {
-      const messageData = {
-        imageBitmap: imageBitmap,
-        width: videoWidth,
-        height: videoHeight,
-        returnDebugData: debugMode,
-        startTime: startTime
-      };
-      
-      glowstickWorker.postMessage({
-        type: 'DETECT',
-        data: messageData
-      }, [imageBitmap]);
-      
-      // if the worker is not responding in 5s, restart the detection loop
-      const timeoutId = setTimeout(() => {
-        if (isWorkerProcessing) {
-          isWorkerProcessing = false;
-          requestAnimationFrame(processGlowstickFrame);
-        }
-      }, 5000);
-      glowstickWorker._currentTimeoutId = timeoutId;
-    });
+  const isCurrentRequest = () => isGlowstickDetectionActive &&
+    glowstickWorker === worker && activeGlowstickRequest === requestId;
+  const releaseRequest = () => {
+    clearTimeout(worker._currentTimeoutId);
+    worker._currentTimeoutId = null;
+    activeGlowstickRequest = null;
+    isWorkerProcessing = false;
+  };
+
+  // Cover both frame capture and inference, including a stalled capture promise.
+  worker._currentTimeoutId = setTimeout(() => {
+    if (!isCurrentRequest()) return;
+    releaseRequest();
+    scheduleGlowstickFrame(100);
+  }, 5000);
+
+  let imageBitmap = null;
+  try {
+    imageBitmap = await createImageBitmap(cameraVideo);
+    if (!isCurrentRequest()) return;
+    worker.postMessage({
+      type: 'DETECT',
+      requestId,
+      data: { imageBitmap, width: videoWidth, height: videoHeight, returnDebugData: debugMode }
+    }, [imageBitmap]);
+    imageBitmap = null; // Ownership has transferred to the worker.
+  } catch (error) {
+    if (isCurrentRequest()) {
+      releaseRequest();
+      scheduleGlowstickFrame(100);
+    }
+  } finally {
+    if (imageBitmap) imageBitmap.close();
+  }
 }
 
-function handleGlowstickDetectionResult(data) {
+function handleGlowstickDetectionResult(data, requestId) {
+  if (!isGlowstickDetectionActive || requestId !== activeGlowstickRequest) return;
+  activeGlowstickRequest = null;
   isWorkerProcessing = false;
-  
-  if (glowstickWorker && glowstickWorker._currentTimeoutId) {
-    clearTimeout(glowstickWorker._currentTimeoutId);
-    glowstickWorker._currentTimeoutId = null;
-  }
-  
+  clearTimeout(glowstickWorker._currentTimeoutId);
+  glowstickWorker._currentTimeoutId = null;
+
   const { position, debugData } = data;
   
   if (debugData) {
@@ -385,7 +406,7 @@ function handleGlowstickDetectionResult(data) {
     }
   }
   
-  requestAnimationFrame(processGlowstickFrame);
+  scheduleGlowstickFrame();
 }
 
 function convertCameraToScreenCoords(cameraPosition) {
@@ -720,6 +741,11 @@ function drawPredictionPoint(context, position, canvasWidth = 192, canvasHeight 
 }
 
 function cleanupGlowstickDetection() {
+  cancelAnimationFrame(glowstickFrameId);
+  clearTimeout(glowstickRetryTimer);
+  glowstickFrameId = null;
+  glowstickRetryTimer = null;
+  activeGlowstickRequest = null;
   isGlowstickDetectionActive = false;
   glowstickModeActive = false;
   stopGlowstickLoop();
@@ -928,6 +954,14 @@ function initFPSDisplay() {
 }
 
 // precalculate scores to make sure the max score is 1000000
+function getNoteHitCount(duration, config) {
+  if (duration <= config.multiNote.threshold) return 1;
+  return Math.min(
+    2 + Math.floor((duration - config.multiNote.threshold) / config.multiNote.hitInterval),
+    config.multiNote.maxHitCount
+  );
+}
+
 function analyzeSongAndCalculateScores(video, totalBeats) {
   if (!video) return;
   
@@ -952,7 +986,7 @@ function analyzeSongAndCalculateScores(video, totalBeats) {
         const duration = unit.endTime - unit.startTime;
         
         if (duration > currentConfig.multiNote.threshold) {
-          const hitCount = 2 + Math.floor((duration - currentConfig.multiNote.threshold) / currentConfig.multiNote.hitInterval);
+          const hitCount = getNoteHitCount(duration, currentConfig);
           totalHits += hitCount;
           
           const multiHitScoreWeight = (hitCount - 1) * 0.5 + 1;
@@ -1544,6 +1578,7 @@ function handleNoteHit(note, result, distance) {
     const multiHitScore = scoreConfig[hitQuality] * 0.5;
     gameState.score += multiHitScore;
     gameState.combo++;
+    gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo);
     
     createEffect('hit', note.x + note.width / 2, note.y + 12, hitQuality);
     showHitResult(hitQuality);
@@ -2003,8 +2038,7 @@ function spawnNote(char, time, duration = 500) {
   
   if (duration > currentConfig.multiNote.threshold) {
     type = 'multi';
-    hitCount = 2 + Math.floor((duration - currentConfig.multiNote.threshold) / currentConfig.multiNote.hitInterval);
-    hitCount = Math.min(hitCount, currentConfig.multiNote.maxHitCount);
+    hitCount = getNoteHitCount(duration, currentConfig);
   }
   
   const note = new Note(type, char, x, y, time, duration, hitCount);
@@ -2107,14 +2141,17 @@ function stopPseudoNoteGeneration() {
   }
 }
 
+let gameFrameId = null;
+
 function gameLoop() {
+  gameFrameId = null;
   if (!gameState.isPlaying) {
     return;
   }
   
   if (gameState.isPaused) {
     gameState.lastUpdateTime = null;
-    requestAnimationFrame(gameLoop);
+    gameFrameId = requestAnimationFrame(gameLoop);
     return;
   }
   
@@ -2154,10 +2191,39 @@ function gameLoop() {
   
   DOMBatcher.flushUpdates();
   
-  requestAnimationFrame(gameLoop);
+  gameFrameId = requestAnimationFrame(gameLoop);
 }
 
 let isGameOverStarted = false;
+let gameSessionId = 0;
+let gameEndTimer = null;
+let volumeFadeTimer = null;
+
+function cancelGameEnd() {
+  clearTimeout(gameEndTimer);
+  clearInterval(volumeFadeTimer);
+  gameEndTimer = null;
+  volumeFadeTimer = null;
+}
+
+function scheduleGameEnd(result, delay = 2000) {
+  if (!gameState.isPlaying || gameEndTimer !== null) return;
+  const sessionId = gameSessionId;
+  gameEndTimer = setTimeout(() => {
+    if (sessionId !== gameSessionId || !gameState.isPlaying) return;
+    gameEndTimer = null;
+    endGame(result);
+  }, delay);
+}
+
+function invalidateGameSession() {
+  gameSessionId++;
+  gameState.isPlaying = false;
+  gameState.isPaused = false;
+  cancelGameEnd();
+  cancelAnimationFrame(gameFrameId);
+  gameFrameId = null;
+}
 
 function checkGameOver() {
   if (gameState.health <= 0 && !isGameOverStarted) {
@@ -2169,7 +2235,7 @@ function checkGameOver() {
     const fadeInterval = fadeDuration / fadeSteps;
     
     let currentStep = 0;
-    const volumeFadeTimer = setInterval(() => {
+    volumeFadeTimer = setInterval(() => {
       currentStep++;
       const progress = currentStep / fadeSteps;
       const newVolume = initialVolume * (1 - progress);
@@ -2180,6 +2246,7 @@ function checkGameOver() {
       
       if (currentStep >= fadeSteps) {
         clearInterval(volumeFadeTimer);
+        volumeFadeTimer = null;
       }
           }, fadeInterval);
       
@@ -2188,13 +2255,16 @@ function checkGameOver() {
         gameOverOverlay.classList.add('active');
       }
       
-      setTimeout(() => {
-        endGame('failed');
-      }, fadeDuration);
+      scheduleGameEnd('failed', fadeDuration);
   }
 }
 
 async function endGame(result) {
+  if (!gameState.isPlaying) return;
+  const sessionId = gameSessionId;
+  cancelGameEnd();
+  cancelAnimationFrame(gameFrameId);
+  gameFrameId = null;
   gameState.isPlaying = false;
   gameState.isPaused = false;
   
@@ -2202,9 +2272,11 @@ async function endGame(result) {
   
   if (player && player.isPlaying) {
     await player.requestPause();
+    if (sessionId !== gameSessionId) return;
     await player.requestStop();
   }
   
+  if (sessionId !== gameSessionId) return;
   disableCamera();
   
   let finalGrade = result === 'failed' ? 'F' : calculateGrade();
@@ -2230,6 +2302,7 @@ async function endGame(result) {
 }
 
 function cleanupGame() {
+  invalidateGameSession();
   isGameOverStarted = false;
   stopPseudoNoteGeneration();
   
@@ -2535,9 +2608,7 @@ function initPlayer() {
             gameOverOverlay.classList.add('active');
           }
           
-          setTimeout(() => {
-            endGame('completed');
-          }, 2000);
+          scheduleGameEnd('completed');
         }
       }
     },
@@ -2550,9 +2621,7 @@ function initPlayer() {
             gameOverOverlay.classList.add('active');
           }
           
-          setTimeout(() => {
-            endGame('completed');
-          }, 2000);
+          scheduleGameEnd('completed');
         }
       }
     }
@@ -2578,6 +2647,7 @@ function hidePauseModal() {
 }
 
 async function exitGame() {
+  invalidateGameSession();
   hidePauseModal();
   
   if (player) {
@@ -2593,6 +2663,7 @@ async function exitGame() {
 }
 
 async function restartGameFromPause() {
+  invalidateGameSession();
   hidePauseModal();
   
   if (gameState.currentSong) {
