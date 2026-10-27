@@ -12,13 +12,18 @@ function harness() {
   const timers = new Map();
   const frames = new Map();
   const elements = new Map();
+  const documentEvents = new Map();
+  const windowEvents = new Map();
+  const listen = (map, name, callback) => { map.set(name, [...(map.get(name) || []), callback]); };
+  const emit = (map, name, event) => (map.get(name) || []).forEach(callback => callback(event));
   const element = () => ({
     style: {}, classList: { add() {}, remove() {}, toggle() {} },
-    remove() {}, appendChild() {}, querySelector() { return null; },
+    addEventListener() {}, remove() {}, appendChild() {}, querySelector() { return null; },
     closest() { return null; }, removeEventListener() {}
   });
   const document = {
-    addEventListener() {}, querySelector() { return element(); },
+    documentElement: {style: {setProperty() {}}},
+    addEventListener(name, callback) { listen(documentEvents, name, callback); }, querySelector() { return element(); },
     querySelectorAll() { return []; }, createElement: element,
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, element());
@@ -27,7 +32,11 @@ function harness() {
   };
   const addTimer = (fn, delay) => { const id = ++nextId; timers.set(id, {fn, delay}); return id; };
   const context = vm.createContext({
-    console, document, window: { innerWidth: 1280, innerHeight: 720 },
+    console, document, window: { innerWidth: 1280, innerHeight: 720,
+      matchMedia: () => ({matches:false}), screen: {},
+      addEventListener(name, callback) {listen(windowEvents, name, callback);},
+      dispatchEvent(event) {emit(windowEvents, event.type, event);} },
+    CustomEvent: class {constructor(type, options) {this.type=type;this.detail=options.detail}},
     TextAliveApp: { Player: class { addListener(value) { listeners = value; } } },
     setTimeout: addTimer, setInterval: addTimer,
     clearTimeout: id => timers.delete(id), clearInterval: id => timers.delete(id),
@@ -35,10 +44,13 @@ function harness() {
     cancelAnimationFrame: id => frames.delete(id), performance: { now: () => 0 },
     createImageBitmap: async () => ({close() {}}), Audio: class {}
   });
+  vm.runInContext(source('display.js'), context);
   vm.runInContext(source('player.js'), context);
   vm.runInContext(source('track.js'), context);
   const run = code => vm.runInContext(code, context);
-  return { context, run, timers, frames, get listeners() { return listeners; },
+  return { context, run, timers, frames, elements,
+    emitDocument: name => emit(documentEvents, name),
+    get listeners() { return listeners; },
     fire(id) { const timer = timers.get(id); timers.delete(id); return timer.fn(); } };
 }
 
@@ -72,7 +84,7 @@ test('tracker advances once per elapsed interval, including identical/backward t
 test('analysis and actual spawned notes agree, and perfect hits earn the note budget', () => {
   const h = harness();
   h.run(`getRandomPianoKey=()=> 'C4'; getPianoKeyInfo=()=>({width:100,centerY:100,y:100});
-    getPianoRollPosition=()=>({x:0,y:0,height:500});triggerPianoKeyEffect=()=>{};
+    getPianoRollPosition=()=>({x:0,y:0,width:127,height:500});triggerPianoKeyEffect=()=>{};
     Note.prototype.createElement=function(){return {style:{},querySelector(){return null}}};`);
   for (const difficulty of ['easy', 'normal', 'hard']) {
     for (const duration of [100, 500, 700, 2500, 3000, 10000]) {
@@ -245,4 +257,110 @@ test('health depletion still ends the game as failed and cancels volume fading',
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(results.length,1);assert.equal(results[0].result,'failed');
   assert.equal(h.timers.size,0);
+});
+
+test('mobile start requests fullscreen in the click turn, then locks landscape', async () => {
+  const h=harness();const calls=[];
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.document.documentElement.requestFullscreen=async()=>{calls.push('fullscreen');h.context.document.fullscreenElement={};};
+  h.context.window.screen.orientation={lock:async value=>calls.push(value)};
+  h.run('fullscreenManager.setActive(true);');
+  const entering=h.run('fullscreenManager.enter()');
+  assert.deepEqual(calls,['fullscreen']);
+  await entering;
+  assert.deepEqual(calls,['fullscreen','landscape']);
+});
+
+test('unsupported/rejected fullscreen and orientation show a rotatable fallback, not a rejection', async () => {
+  const h=harness();
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.window.innerWidth=390;h.context.window.innerHeight=844;
+  h.context.document.documentElement.requestFullscreen=async()=>{throw Error('not allowed')};
+  h.context.window.screen.orientation={lock:async()=>{throw Error('unsupported')}};
+  h.run('fullscreenManager.setActive(true);');
+  await h.run('fullscreenManager.enter()');
+  assert.equal(h.elements.get('orientation-prompt').hidden,false);
+  h.context.window.innerWidth=844;h.context.window.innerHeight=390;
+  h.run('fullscreenManager.update()');
+  assert.equal(h.elements.get('orientation-prompt').hidden,true);
+});
+
+test('desktop fullscreen never requests an orientation lock', async () => {
+  const h=harness();let locks=0;
+  h.context.document.documentElement.requestFullscreen=async()=>{};
+  h.context.window.screen.orientation={lock:async()=>{locks++}};
+  h.run('fullscreenManager.setActive(true);');await h.run('fullscreenManager.enter()');
+  assert.equal(locks,0);
+});
+
+test('exit during a pending fullscreen request releases fullscreen and orientation', async () => {
+  const h=harness();let release;let exits=0;let locks=0;
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.document.documentElement.requestFullscreen=()=>new Promise(resolve=>{release=()=>{h.context.document.fullscreenElement={};resolve()}});
+  h.context.document.exitFullscreen=async()=>{exits++;h.context.document.fullscreenElement=null};
+  h.context.window.screen.orientation={lock:async()=>{locks++},unlock(){}};
+  h.run('fullscreenManager.setActive(true)');const entering=h.run('fullscreenManager.enter()');
+  await h.run('fullscreenManager.exit()');release();await entering;
+  assert.equal(exits,1);assert.equal(locks,0);assert.equal(h.run('fullscreenManager.isActive()'),false);
+});
+
+test('portrait timer-ready waits for explicit continue after rotation', () => {
+  const h=harness();h.emitDocument('DOMContentLoaded');
+  let plays=0;h.context.play=()=>{plays++};
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.window.innerWidth=390;h.context.window.innerHeight=844;
+  h.run('fullscreenManager.setActive(true);player.requestPlay=play;player.isPlaying=false;');
+  h.listeners.onTimerReady();
+  assert.equal(plays,0);assert.equal(h.run('gameState.isPaused'),true);
+  h.run('continuePause()');assert.equal(plays,0);
+  h.context.window.innerWidth=844;h.context.window.innerHeight=390;
+  h.run('fullscreenManager.update()');
+  assert.equal(plays,0);assert.equal(h.run('gameState.isPaused'),true);
+  h.run('continuePause()');assert.equal(plays,1);
+});
+
+test('resize remaps note coordinates and rotating portrait pauses playback immediately', () => {
+  const h=harness();h.emitDocument('DOMContentLoaded');
+  let pauses=0;h.context.pause=()=>{pauses++};
+  h.context.window.matchMedia=()=>({matches:true});
+  h.run(`fullscreenManager.setActive(true);gameState.isPlaying=true;player.isPlaying=true;
+    player.requestPause=pause;gameState.notes=[{x:640,y:360,vx:100,vy:50,element:{style:{}}}];`);
+  h.context.window.innerWidth=360;h.context.window.innerHeight=640;
+  h.run('fullscreenManager.update()');
+  assert.equal(h.run('gameState.notes[0].x'),180);
+  assert.equal(h.run('gameState.notes[0].y'),320);
+  assert.equal(h.run('gameState.isPaused'),true);assert.equal(pauses,1);
+  assert.match(h.run('gameState.notes[0].element.style.transform'),/180px, 320px/);
+});
+
+test('escape from fullscreen pauses, without trying to force fullscreen back', () => {
+  const h=harness();h.emitDocument('DOMContentLoaded');let pauses=0;
+  h.context.pause=()=>{pauses++};
+  h.run('fullscreenManager.setActive(true);gameState.isPlaying=true;player.isPlaying=true;player.requestPause=pause;');
+  h.context.document.fullscreenElement={};h.emitDocument('fullscreenchange');
+  h.context.document.fullscreenElement=null;h.emitDocument('fullscreenchange');
+  assert.equal(pauses,1);assert.equal(h.run('gameState.isPaused'),true);
+});
+
+test('late timer-ready after leaving the game cannot resume playback', () => {
+  const h=harness();h.emitDocument('DOMContentLoaded');
+  h.run('fullscreenManager.setActive(false);gameState.isPlaying=false;');
+  h.listeners.onTimerReady();assert.equal(h.run('gameState.isPlaying'),false);
+});
+
+test('piano spawning follows actual rendered bounds on different screens', () => {
+  const h=harness();let rect;
+  h.context.document.querySelector=()=>({getBoundingClientRect:()=>rect});
+  h.run(`getRandomPianoKey=()=> 'C4';getPianoKeyInfo=()=>({width:100,centerY:250,y:250});
+    triggerPianoKeyEffect=()=>{};
+    Note.prototype.createElement=function(){return {style:{},querySelector(){return null}}};`);
+  for(const [width,height] of [[320,568],[568,320],[390,844],[844,390],[768,1024],[1024,768],[1366,768],[1920,1080],[2560,1080]]) {
+    h.context.window.innerWidth=width;h.context.window.innerHeight=height;
+    const pianoHeight=Math.min(500,height-140);
+    rect={left:12,top:80,width:pianoHeight*0.254,height:pianoHeight};
+    h.run("gameState.notes=[];spawnNote('test',0,500);");
+    assert.ok(Math.abs(h.run('gameState.notes[0].x')-(12+100*rect.width/127+10))<1e-6);
+    assert.equal(h.run('gameState.notes[0].y'),80+pianoHeight/2);
+    assert.ok(h.run('gameState.notes[0].y')<height);
+  }
 });

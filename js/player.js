@@ -25,43 +25,7 @@ function playGameAudio(audioType) {
   }
 }
 
-const fullscreenManager = {
-  async enter() {
-    if (this.isFullscreen()) return;
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        await elem.requestFullscreen();
-      } else if (elem.webkitRequestFullscreen) {
-        await elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        await elem.msRequestFullscreen();
-      } else if (elem.mozRequestFullScreen) {
-        await elem.mozRequestFullScreen();
-    }
-  },
-
-  async exit() {
-    if (!this.isFullscreen()) return;
-      if (document.exitFullscreen) {
-        await document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        await document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
-        await document.msExitFullscreen();
-      } else if (document.mozCancelFullScreen) {
-        await document.mozCancelFullScreen();
-    }
-  },
-
-  isFullscreen() {
-    return !!(
-      document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.msFullscreenElement ||
-      document.mozFullScreenElement
-    );
-  }
-};
+const fullscreenManager = window.GameDisplay;
 
 window.difficultyConfig = {
   easy: {
@@ -535,6 +499,7 @@ function stopMouseEvents() {
   
   if (mouseEventHandler && playerPage) {
     playerPage.removeEventListener('pointermove', mouseEventHandler);
+    playerPage.removeEventListener('pointerdown', mouseEventHandler);
     mouseEventHandler = null;
   }
   
@@ -782,7 +747,7 @@ function cleanupGlowstickDetection() {
   isWorkerProcessing = false;
 }
 
-async function enableCamera() {
+async function enableCamera(sessionId = gameSessionId) {
   if (cameraStream) {
     return;
   }
@@ -794,6 +759,7 @@ async function enableCamera() {
     const aspectRatio = settings.width / settings.height;
 
     track.stop();
+    if (sessionId !== gameSessionId) return;
 
     const idealWidth = 640;
     const idealHeight = Math.round(idealWidth / aspectRatio);
@@ -807,6 +773,10 @@ async function enableCamera() {
         audio: false
       });
 
+      if (sessionId !== gameSessionId) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       cameraStream = stream;
 
       cameraVideo = document.getElementById('camera-video');
@@ -1273,7 +1243,7 @@ class Note {
     this.vx = Math.max(0, this.vx * (1 - dampening));
 
     this.y += this.vy * dt;
-    this.vy += (200 - this.vy * dampening) * dt;
+    this.vy += (200 * Math.min(1, window.innerHeight / 720) - this.vy * dampening) * dt;
 
     const newX = this.x | 0;
     const newY = this.y | 0;
@@ -1347,7 +1317,6 @@ function showPlayer() {
   document.getElementById('tutorial-page').classList.add('hidden');
   document.getElementById('player-page').classList.remove('hidden');
   
-  fullscreenManager.enter();
   initGameUI();
 }
 
@@ -1398,15 +1367,18 @@ function setupMouseEvents() {
   
   if (mouseEventHandler) {
     playerPage.removeEventListener('pointermove', mouseEventHandler);
+    playerPage.removeEventListener('pointerdown', mouseEventHandler);
   }
   
   mouseEventHandler = (e) => {
+    if (e.target.closest('button, .pause-modal')) return;
     currentMouseX = e.clientX;
     currentMouseY = e.clientY;
     hasRecentMouseMovement = true;
   };
   
   playerPage.addEventListener('pointermove', mouseEventHandler);
+  playerPage.addEventListener('pointerdown', mouseEventHandler);
 }
 
 
@@ -2001,23 +1973,19 @@ function getRandomPianoKey() {
 }
 
 function getPianoRollPosition() {
-  const playerPage = document.getElementById('player-page');
-  const pianoRoll = playerPage.querySelector('.piano-roll');
-  if (!pianoRoll) return { x: 20, y: window.innerHeight * 0.1, height: 500 };
-  
-  return {
-    x: 20,
-    y: window.innerHeight * 0.1,
-    height: 500
-  };
+  const pianoRoll = document.querySelector('.piano-roll');
+  if (!pianoRoll) return { x: 20, y: 70, width: 127, height: 500 };
+  const rect = pianoRoll.getBoundingClientRect();
+  return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
 }
 
 // higher y velocity to make notes not dropping down too fast
 function calculateNoteVelocity(y) {
   const vyMin = -100 - (y / 500) * 200;
   const vyMax = -50 - (y / 500) * 100;
-  const vy = vyMin + Math.random() * (vyMax - vyMin);
-  const vxMin = 120;
+  const heightScale = Math.min(1, window.innerHeight / 720);
+  const vy = (vyMin + Math.random() * (vyMax - vyMin)) * heightScale;
+  const vxMin = Math.min(120, window.innerWidth * 0.15);
   const vxMax = Math.max(vxMin + 100, window.innerWidth * 0.4);
   const vx = vxMin + Math.random() * (vxMax - vxMin);
   
@@ -2030,7 +1998,7 @@ function spawnNote(char, time, duration = 500) {
   const keyInfo = getPianoKeyInfo(selectedKey);
   const pianoRollPos = getPianoRollPosition();
 
-  const x = pianoRollPos.x + keyInfo.width + 10
+  const x = pianoRollPos.x + keyInfo.width * (pianoRollPos.width / 127) + 10
   const y = pianoRollPos.y + (keyInfo.centerY / 500) * pianoRollPos.height;
 
   let type = 'single';
@@ -2060,9 +2028,9 @@ function triggerPianoKeyEffect(keyInfo) {
   const keyEffect = document.createElement('div');
   keyEffect.className = `piano-key-effect ${keyInfo.isBlackKey ? 'black-key' : 'white-key'}`;
   
-  keyEffect.style.top = keyInfo.y - keyInfo.height / 2 + 'px';
-  keyEffect.style.width = keyInfo.width + 'px';
-  keyEffect.style.height = keyInfo.height + 'px';
+  keyEffect.style.top = ((keyInfo.y - keyInfo.height / 2) / 500) * 100 + '%';
+  keyEffect.style.width = (keyInfo.width / 127) * 100 + '%';
+  keyEffect.style.height = (keyInfo.height / 500) * 100 + '%';
   
   keyEffect.classList.add('active');
   setTimeout(() => {
@@ -2088,7 +2056,7 @@ function spawnPseudoNote() {
   const keyInfo = getPianoKeyInfo(selectedKey);
   const pianoRollPos = getPianoRollPosition();
   
-  const x = pianoRollPos.x + keyInfo.width + 10
+  const x = pianoRollPos.x + keyInfo.width * (pianoRollPos.width / 127) + 10
   const y = pianoRollPos.y + (keyInfo.centerY / 500) * pianoRollPos.height;
   
   const durationRange = currentConfig.pseudoNote.durationMax - currentConfig.pseudoNote.durationMin;
@@ -2278,6 +2246,7 @@ async function endGame(result) {
   
   if (sessionId !== gameSessionId) return;
   disableCamera();
+  fullscreenManager.setActive(false);
   
   let finalGrade = result === 'failed' ? 'F' : calculateGrade();
   gameState.grade = finalGrade;
@@ -2469,17 +2438,23 @@ async function startGame(song) {
       setCurrentSong(song);
       showPlayer();
       resetGameState();
+      fullscreenManager.setActive(true);
+      const presentationReady = fullscreenManager.enter();
+      const sessionId = gameSessionId;
       
     document.querySelector("#overlay").className = "";
     document.querySelector("#pause-btn").disabled = true;
     
       if (interactionMode.isGlowStickMode) {
       const initSuccess = await initGlowstickDetection();
+      if (sessionId !== gameSessionId) return;
       if (initSuccess) {
-        await enableCamera();
+        await enableCamera(sessionId);
       }
       }
       
+      await presentationReady;
+      if (sessionId !== gameSessionId) return;
       beatBase = songConfig.beatBase;
       beatPM = songConfig.beatPM;
       beatDuration = 60000 / beatPM / beatBase;
@@ -2527,22 +2502,25 @@ function initPlayer() {
     },
 
     onTimerReady() {
+      if (!fullscreenManager.isActive()) return;
       document.querySelector("#overlay").className = "disabled";
       document.querySelector("#pause-btn").disabled = false;
       gameState.isPlaying = true;
-      gameState.isPaused = false;
+      gameState.isPaused = fullscreenManager.needsLandscape();
       gameLoop();
       
       startPseudoNoteGeneration();
       setupInteractionEvents();
-      if (player && !player.isPlaying) {
+      if (gameState.isPaused) {
+        showPauseModal();
+      } else if (player && !player.isPlaying) {
         player.requestPlay();
       }
     },
 
     // get beat and lyrics information from TextAlive Player
     onTimeUpdate(position) {
-      if (!gameState.isPlaying) return;
+      if (!gameState.isPlaying || gameState.isPaused) return;
       
       const video = player.video;
       if (!video) return;
@@ -2590,6 +2568,10 @@ function initPlayer() {
     },
 
     onPlay() {
+      if (fullscreenManager.needsLandscape()) {
+        showPauseModal();
+        return;
+      }
       gameState.isPaused = false;
       gameState.lastUpdateTime = null;
     },
@@ -2633,6 +2615,7 @@ function setCurrentSong(song) {
 }
 
 function showPauseModal() {
+  gameState.isPaused = true;
   const modal = document.getElementById('pause-modal');
   if (modal) {
     modal.classList.remove('hidden');
@@ -2648,6 +2631,7 @@ function hidePauseModal() {
 
 async function exitGame() {
   invalidateGameSession();
+  fullscreenManager.setActive(false);
   hidePauseModal();
   
   if (player) {
@@ -2679,6 +2663,7 @@ async function restartGameFromPause() {
 }
 
 function continuePause() {
+  if (fullscreenManager.needsLandscape()) return;
   hidePauseModal();
   
   if (player && !player.isPlaying && gameState.isPlaying && gameState.isPaused) {
@@ -2691,6 +2676,25 @@ function continuePause() {
 document.addEventListener('DOMContentLoaded', () => {
   preloadAudio();
   initPlayer();
+  window.addEventListener('game-display-change', ({ detail }) => {
+    const { width, height, previousWidth, previousHeight, blocked, interrupted } = detail;
+    if (previousWidth > 0 && previousHeight > 0 &&
+        (width !== previousWidth || height !== previousHeight)) {
+      for (const note of gameState.notes) {
+        note.x *= width / previousWidth;
+        note.y *= height / previousHeight;
+        note.vx *= width / previousWidth;
+        note.vy *= height / previousHeight;
+        note.lastX = note.x | 0;
+        note.lastY = note.y | 0;
+        note.element.style.transform = `translate3d(${note.x}px, ${note.y}px, 0)`;
+      }
+      domUpdatesQueue = [];
+      hasRecentMouseMovement = false;
+      if (glowstickKalmanFilter) glowstickKalmanFilter = new window.KalmanTracker();
+    }
+    if (gameState.isPlaying && (blocked || interrupted)) showPauseModal();
+  });
   document.getElementById('pause-btn').addEventListener('click', showPauseModal);
   
   const exitBtn = document.getElementById('exit-btn');
@@ -2727,7 +2731,8 @@ document.addEventListener('DOMContentLoaded', () => {
 window.Player = {
   showPlayer,
   hidePlayer,
-  startGame
+  startGame,
+  exitGame
 };
 
 window.FullscreenManager = fullscreenManager; 

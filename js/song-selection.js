@@ -96,14 +96,9 @@ function setupCanvasSize() {
 
 // for responsive cover spacing
 function getCoverSpacing() {
-  const screenWidth = window.innerWidth;
-  if (screenWidth <= 480) {
-    return 200;
-  } else if (screenWidth <= 768) {
-    return 250;
-  } else {
-    return 300;
-  }
+  const cover = document.getElementById('song-cover-container');
+  const width = cover ? parseFloat(getComputedStyle(cover).width) : 200;
+  return width + 24;
 }
 
 // parameters for frequency map
@@ -749,6 +744,7 @@ function setupResponsiveListener() {
     resizeTimeout = setTimeout(() => {
       if (!isAnimating) {
         updateCoverPositions();
+        setupCanvasSize();
       }
     }, 100);
   });
@@ -757,6 +753,7 @@ function setupResponsiveListener() {
     setTimeout(() => {
       if (!isAnimating) {
         updateCoverPositions();
+        setupCanvasSize();
       }
     }, 200);
   });
