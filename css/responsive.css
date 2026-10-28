@@ -152,10 +152,10 @@ button:focus-visible, a:focus-visible { outline: 3px solid #7fffff; outline-offs
   .song-title { grid-column: 1; grid-row: 1; font-size: 24px; }
   .cover-carousel { grid-column: 1; grid-row: 2 / 5; }
   .audio-spectrum { grid-column: 1; grid-row: 5; justify-self: center; height: 24px; }
-  .song-details { grid-column: 2; grid-row: 1 / 3; font-size: 16px; text-align: left; }
-  .difficulty-buttons { grid-column: 2; grid-row: 3; gap: 8px; }
+  .song-details { grid-column: 2; grid-row: 1 / 3; justify-self: center; align-items: center; font-size: 16px; text-align: center; }
+  .difficulty-buttons { grid-column: 2; grid-row: 3; justify-self: center; gap: 8px; }
   .difficulty-btn { padding: 8px 12px; font-size: 16px; }
-  .interaction-mode-toggle { grid-column: 2; grid-row: 4 / 6; }
+  .interaction-mode-toggle { grid-column: 2; grid-row: 4 / 6; justify-self: center; }
   .tutorial-main { flex-direction: row; }
   .tutorial-title { font-size: 24px; }
   .tutorial-step p { font-size: 16px; }

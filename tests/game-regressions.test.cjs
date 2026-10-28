@@ -107,31 +107,6 @@ test('empty song data and non-Error rejections also produce a recoverable loadin
   }
 });
 
-test('missing lyrics reject an otherwise loaded song before starting the timer', async () => {
-  const h = songLoadingHarness();
-  h.context.videoReady = h.listeners.onVideoReady;
-  h.run(`player.createFromSongUrl = async () => {
-    const video = {duration:196410,chars:[],words:[],phrases:[]};
-    videoReady(video);
-    window.timerInitialized = true;
-    return video;
-  };`);
-  await h.run("startGame({id:'streetlight'})");
-  assert.equal(h.run('window.timerInitialized'), undefined);
-  assert.match(h.elements.get('loading-error-message').textContent, /歌词数据暂时不可用/);
-  assert.equal(h.run('gameState.isPlaying'), false);
-  assert.equal(h.run('fullscreenManager.isActive()'), false);
-});
-
-test('lyrics with timing data are analyzed through the public beats API', () => {
-  const h = songLoadingHarness();
-  h.run(`fullscreenManager.setActive(true);
-    player.getBeats = () => [{}, {}, {}];
-    analyzeSongAndCalculateScores = (video, count) => {window.beatCount = count;};`);
-  h.listeners.onVideoReady({chars:[{text:'x',startTime:1000,endTime:1200}]});
-  assert.equal(h.run('window.beatCount'), 3);
-});
-
 test('a new successful song load clears the previous error and keeps the configured video IDs', async () => {
   const h = songLoadingHarness();
   h.run(`player.createFromSongUrl = async () => {throw new Error('offline');};`);

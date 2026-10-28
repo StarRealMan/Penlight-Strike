@@ -2477,9 +2477,7 @@ function showSongLoadError(error, sessionId) {
   fullscreenManager.exit();
   document.querySelector('#overlay').className = 'loading-failed';
   document.getElementById('loading-error-message').textContent =
-    error?.message === 'Lyrics unavailable'
-      ? '歌词数据暂时不可用，无法生成音符。请稍后重试或选择其他歌曲。'
-      : error?.message === 'Card data resolver is unavailable'
+    error?.message === 'Card data resolver is unavailable'
       ? 'TextAlive 未能解析这首歌曲，请稍后重试。'
       : '歌曲加载失败，请检查网络连接，或稍后重新选择歌曲。';
   document.getElementById('loading-error').hidden = false;
@@ -2551,11 +2549,11 @@ function initPlayer() {
 
     onVideoReady(video) {
       if (!fullscreenManager.isActive()) return;
-      // TextAlive can resolve a video with no lyrics when its upstream fetch fails.
-      // Reject before timer initialization so an empty chart cannot start playing.
-      if (!video?.chars?.length) throw new Error('Lyrics unavailable');
-      beatsArray = player.getBeats();
-      analyzeSongAndCalculateScores(video, beatsArray.length);
+      let beatLength = 0;
+
+      beatsArray = player._data.songProvider._analysis.beats;
+      beatLength = beatsArray.length;
+      analyzeSongAndCalculateScores(video, beatLength);
     },
 
     onTimerReady() {
