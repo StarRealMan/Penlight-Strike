@@ -51,6 +51,7 @@ function harness() {
   const run = code => vm.runInContext(code, context);
   return { context, run, timers, frames, elements,
     emitDocument: (name, event) => emit(documentEvents, name, event),
+    emitWindow: (name, event) => emit(windowEvents, name, event),
     get listeners() { return listeners; },
     fire(id) { const timer = timers.get(id); timers.delete(id); return timer.fn(); } };
 }
@@ -345,20 +346,20 @@ test('mobile welcome entry requests fullscreen then landscape without activating
   await h.run('fullscreenManager.enter()');
   assert.deepEqual(calls,['fullscreen','landscape']);
   assert.equal(h.run('fullscreenManager.isActive()'),false);
-  assert.equal(h.elements.get('orientation-prompt').hidden,true);
+  assert.equal(h.elements.has('orientation-prompt'),false);
 });
 
 async function welcomeHarness() {
-  const h=harness(); const clicks=new Set(); const calls=[];
+  const h=harness(); const clicks=new Set(); const touches=new Set(); const calls=[];
   const welcome=h.context.document.getElementById('welcome-page');
-  welcome.addEventListener=(name, fn)=>{if(name==='click')clicks.add(fn)};
-  welcome.removeEventListener=(name, fn)=>{if(name==='click')clicks.delete(fn)};
+  welcome.addEventListener=(name, fn)=>{if(name==='click')clicks.add(fn);if(name==='touchend')touches.add(fn)};
+  welcome.removeEventListener=(name, fn)=>{if(name==='click')clicks.delete(fn);if(name==='touchend')touches.delete(fn)};
   h.context.window.SongSelection={enableAudio(){calls.push('audio')}};
   h.context.document.documentElement.requestFullscreen=async()=>{calls.push('fullscreen');h.context.document.fullscreenElement={};};
   vm.runInContext(source('welcome.js'),h.context);
   h.run('preloadResources=async()=>{};');
   await h.run('initWelcomePage()');
-  return {h,calls,click:()=>[...clicks].forEach(fn=>fn())};
+  return {h,calls,click:()=>[...clicks].forEach(fn=>fn()),touch:event=>[...touches].forEach(fn=>fn(event))};
 }
 
 test('welcome click requests fullscreen and enables audio in the same gesture, once', async () => {
@@ -417,7 +418,7 @@ test('mobile game start can still request fullscreen when entry was unavailable'
   assert.deepEqual(calls,['fullscreen','landscape']);
 });
 
-test('unsupported/rejected fullscreen and orientation show a rotatable fallback, not a rejection', async () => {
+test('denied presentation APIs do not create a rotate overlay or block portrait gameplay', async () => {
   const h=harness();
   h.context.window.matchMedia=()=>({matches:true});
   h.context.window.innerWidth=390;h.context.window.innerHeight=844;
@@ -425,10 +426,10 @@ test('unsupported/rejected fullscreen and orientation show a rotatable fallback,
   h.context.window.screen.orientation={lock:async()=>{throw Error('unsupported')}};
   h.run('fullscreenManager.setActive(true);');
   await h.run('fullscreenManager.enter()');
-  assert.equal(h.elements.get('orientation-prompt').hidden,false);
+  assert.equal(h.elements.has('orientation-prompt'),false);
   h.context.window.innerWidth=844;h.context.window.innerHeight=390;
   h.run('fullscreenManager.update()');
-  assert.equal(h.elements.get('orientation-prompt').hidden,true);
+  assert.equal(h.elements.has('orientation-prompt'),false);
 });
 
 test('desktop fullscreen never requests an orientation lock', async () => {
@@ -450,22 +451,18 @@ test('exit during a pending fullscreen request releases fullscreen and orientati
   assert.equal(exits,1);assert.equal(locks,0);assert.equal(h.run('fullscreenManager.isActive()'),false);
 });
 
-test('portrait timer-ready waits for explicit continue after rotation', () => {
+test('portrait timer-ready starts normally without a rotate gate', () => {
   const h=harness();h.emitDocument('DOMContentLoaded');
   let plays=0;h.context.play=()=>{plays++};
   h.context.window.matchMedia=()=>({matches:true});
   h.context.window.innerWidth=390;h.context.window.innerHeight=844;
   h.run('fullscreenManager.setActive(true);player.requestPlay=play;player.isPlaying=false;');
   h.listeners.onTimerReady();
-  assert.equal(plays,0);assert.equal(h.run('gameState.isPaused'),true);
-  h.run('continuePause()');assert.equal(plays,0);
-  h.context.window.innerWidth=844;h.context.window.innerHeight=390;
-  h.run('fullscreenManager.update()');
-  assert.equal(plays,0);assert.equal(h.run('gameState.isPaused'),true);
-  h.run('continuePause()');assert.equal(plays,1);
+  assert.equal(plays,1);assert.equal(h.run('gameState.isPaused'),false);
+  assert.equal(h.elements.has('orientation-prompt'),false);
 });
 
-test('resize remaps note coordinates and rotating portrait pauses playback immediately', () => {
+test('resize remaps notes without pausing just because the viewport is portrait', () => {
   const h=harness();h.emitDocument('DOMContentLoaded');
   let pauses=0;h.context.pause=()=>{pauses++};
   h.context.window.matchMedia=()=>({matches:true});
@@ -475,7 +472,7 @@ test('resize remaps note coordinates and rotating portrait pauses playback immed
   h.run('fullscreenManager.update()');
   assert.equal(h.run('gameState.notes[0].x'),180);
   assert.equal(h.run('gameState.notes[0].y'),320);
-  assert.equal(h.run('gameState.isPaused'),true);assert.equal(pauses,1);
+  assert.equal(h.run('gameState.isPaused'),false);assert.equal(pauses,0);
   assert.match(h.run('gameState.notes[0].element.style.transform'),/180px, 320px/);
 });
 
@@ -581,4 +578,94 @@ test('lost glowstick measurements do not keep hitting notes', () => {
   clock=400;h.run('processGlowstickInteraction(400)');assert.equal(h.context.window.hits,1);
   h.run('glowstickKalmanFilter.update({x:12,y:12,timestamp:400,confidence:1})');
   clock=420;h.run('processGlowstickInteraction(420)');assert.equal(h.context.window.hits,2);
+});
+
+
+test('song loading does not wait for a stalled fullscreen request', async () => {
+  const h=songLoadingHarness();
+  h.context.document.documentElement.requestFullscreen=()=>new Promise(()=>{});
+  h.run('player.createFromSongUrl=async()=>{window.songRequested=true;return {}};');
+  await h.run("startGame({id:'streetlight'})");
+  assert.equal(h.run('window.songRequested'),true);
+});
+
+test('song loading does not wait for a stalled landscape lock', async () => {
+  const h=songLoadingHarness();
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.document.fullscreenElement={};
+  h.context.window.screen.orientation={lock:()=>new Promise(()=>{})};
+  h.run('player.createFromSongUrl=async()=>{window.songRequested=true;return {}};');
+  await h.run("startGame({id:'streetlight'})");
+  assert.equal(h.run('window.songRequested'),true);
+});
+
+test('mobile restores presentation on a selection touch after fullscreen is lost', async () => {
+  const h=harness();h.emitDocument('DOMContentLoaded');let requests=0;let locks=0;
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.document.documentElement.requestFullscreen=async()=>{requests++;h.context.document.fullscreenElement={};};
+  h.context.window.screen.orientation={lock:async()=>{locks++},unlock(){}};
+  await h.run('fullscreenManager.enter()');
+  h.emitDocument('fullscreenchange');
+  h.context.document.fullscreenElement=null;h.emitDocument('fullscreenchange');
+  h.emitDocument('touchend');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(requests,2);assert.equal(locks,2);
+  assert.equal(h.run('fullscreenManager.isActive()'),false);
+});
+
+test('a stale fullscreen promise cannot prevent a later gesture retry', async () => {
+  const h=harness();let requests=0;
+  h.context.document.documentElement.requestFullscreen=()=>{requests++;return new Promise(()=>{})};
+  h.run('fullscreenManager.enter()');
+  const timer=[...h.timers.keys()][0];h.fire(timer);
+  h.run('fullscreenManager.enter()');assert.equal(requests,2);
+});
+
+function previewHarness() {
+  const h=harness(); const audios=[];
+  h.context.Audio=class {
+    constructor(){this.events={};this.plays=0;this.paused=true;audios.push(this)}
+    addEventListener(name,fn){this.events[name]=fn}
+    play(){this.plays++;this.paused=false;return Promise.resolve()}
+    pause(){this.paused=true;this.events.pause?.()}
+    removeAttribute(){this.src=''}
+    load(){}
+  };
+  vm.runInContext(source('song-selection.js'),h.context);
+  h.run('userHasInteracted=true;');
+  return {h,audios};
+}
+
+test('late preview loadeddata and play events cannot restart audio after selection hides', async () => {
+  const {h,audios}=previewHarness();
+  h.run("playPreview({preview:'a.wav'})");const audio=audios[0];
+  h.run('hideSongSelection()');audio.events.loadeddata();audio.events.play();
+  await Promise.resolve();assert.equal(audio.plays,0);assert.equal(audio.paused,true);
+  h.run("playPreview({preview:'b.wav'})");assert.equal(audios.length,1);
+});
+
+test('an old preview event cannot start the replacement audio', () => {
+  const {h,audios}=previewHarness();
+  h.run("playPreview({preview:'a.wav'});playPreview({preview:'b.wav'})");
+  audios[0].events.loadeddata();assert.equal(audios[1].plays,0);
+  audios[1].events.loadeddata();assert.equal(audios[1].plays,1);
+});
+
+test('a pending preview play completion stays stopped after entering the game', async () => {
+  const {h,audios}=previewHarness();
+  h.run("playPreview({preview:'a.wav'})");const audio=audios[0];let finish;
+  audio.play=()=>new Promise(resolve=>{finish=()=>{audio.paused=false;resolve()}});
+  audio.events.loadeddata();h.run('hideSongSelection()');finish();
+  await Promise.resolve();assert.equal(audio.paused,true);
+});
+
+
+test('mobile welcome touch enters immediately and suppresses the synthetic click', async () => {
+  const {h,calls,touch,click}=await welcomeHarness();let prevented=false;
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.window.screen.orientation={lock:async value=>calls.push(value)};
+  touch({type:'touchend',preventDefault(){prevented=true}});
+  assert.deepEqual(calls,['fullscreen','audio']);assert.equal(prevented,true);
+  click();await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(calls,['fullscreen','audio','landscape']);
 });

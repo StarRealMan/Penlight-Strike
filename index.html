@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Penlight Strike</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css"/>
-    <link rel="stylesheet" href="./css/main.css?v=20261028-center" />
+    <link rel="stylesheet" href="./css/main.css?v=20261028-mobile-entry2" />
     <link rel="icon" href="icon/favicon.ico" type="image/x-icon">
   </head>
   <body>
@@ -249,9 +249,6 @@
         </div>
       </div>
       <div id="header">
-        <button id="fullscreen-btn" class="pause-btn" aria-label="Fullscreen" title="Fullscreen">
-          <i class="fas fa-expand"></i>
-        </button>
         <button id="pause-btn" class="pause-btn" aria-label="Pause">
           <i class="fas fa-pause"></i>
         </button>
@@ -402,29 +399,18 @@
       </div>
     </div>
 
-    <div id="orientation-prompt" class="orientation-prompt" role="dialog" aria-modal="true" aria-labelledby="orientation-title" hidden>
-      <div class="orientation-card">
-        <div class="rotate-symbol" aria-hidden="true">↻</div>
-        <h2 id="orientation-title">请横屏游玩 · Rotate your device</h2>
-        <p>将手机横过来再继续。若无法自动旋转，请关闭系统竖屏锁定。</p>
-        <p>Rotate to landscape to continue. The game stays paused while this message is shown.</p>
-        <button id="orientation-retry" type="button">全屏并横屏 · Fullscreen</button>
-        <button id="orientation-exit" type="button">返回选曲 · Back</button>
-      </div>
-    </div>
-
     <!-- script to load external libraries -->
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <!-- Pin the original API: the 0.5.3 card resolver currently receives a redirect instead of JSON. -->
     <script src="https://unpkg.com/textalive-app-api@0.4.0/dist/index.js"></script>
 
-    <script src="./js/welcome.js?v=20261028-entry-fullscreen"></script>
-    <script src="./js/song-selection.js"></script>
+    <script src="./js/welcome.js?v=20261028-mobile-entry2"></script>
+    <script src="./js/song-selection.js?v=20261028-mobile-entry2"></script>
     <script src="./js/tutorial.js"></script>
     <script src="./js/track.js"></script>
-    <script src="./js/display.js?v=20261028-entry-fullscreen"></script>
-    <script src="./js/player.js?v=20261028-entry-fullscreen"></script>
-    <script src="./js/result.js?v=20261028-entry-fullscreen"></script>
+    <script src="./js/display.js?v=20261028-mobile-entry2"></script>
+    <script src="./js/player.js?v=20261028-mobile-entry2"></script>
+    <script src="./js/result.js?v=20261028-mobile-entry2"></script>
     <script src="./js/main.js"></script>
   </body>
 </html>

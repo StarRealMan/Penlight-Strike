@@ -118,14 +118,6 @@ button:focus-visible, a:focus-visible { outline: 3px solid #7fffff; outline-offs
 .miku-image { width: min(100%, 400px); max-height: 55vh; object-fit: contain; }
 .miku-dialogue { top: 0; padding: 10px; font-size: 14px; }
 
-.orientation-prompt { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; height: var(--app-height); padding: max(20px, var(--safe-top)) max(20px, var(--safe-right)) max(20px, var(--safe-bottom)) max(20px, var(--safe-left)); overflow-y: auto; background: #07121ff5; touch-action: pan-y; }
-.orientation-prompt[hidden] { display: none; }
-.orientation-card { max-width: 460px; text-align: center; }
-.orientation-card h2 { font-size: 24px; }
-.orientation-card p { line-height: 1.6; color: #c6d8e8; }
-.rotate-symbol { font-size: 64px; color: #7fffff; }
-.orientation-card button { display: block; width: 100%; padding: 12px; margin-top: 12px; border: 1px solid #7fffff; border-radius: 12px; background: #153648; color: white; font-size: 16px; }
-
 @media (max-width: 600px) {
   :root { --cover-size: min(58vw, 220px); }
   .tutorial-main { flex-direction: column; }

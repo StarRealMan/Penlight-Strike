@@ -28,10 +28,12 @@ function initWelcomePage() {
         }
         
         let entered = false;
-        function enterWelcome() {
+        function enterWelcome(event) {
             if (entered) return;
+            if (event?.type === 'touchend') event.preventDefault();
             entered = true;
             welcomePage?.removeEventListener('click', enterWelcome);
+            welcomePage?.removeEventListener('touchend', enterWelcome);
             document.removeEventListener('keydown', onKeydown);
             // Fullscreen and audio both need the original user gesture. Do not await either.
             window.GameDisplay.enter();
@@ -41,6 +43,7 @@ function initWelcomePage() {
             if (event.key === 'Enter' && !event.repeat) enterWelcome();
         }
         welcomePage?.addEventListener('click', enterWelcome);
+        welcomePage?.addEventListener('touchend', enterWelcome, { passive: false });
         document.addEventListener('keydown', onKeydown);
     });
 }

@@ -2500,7 +2500,7 @@ async function startGame(song) {
 
   try {
     // Request fullscreen synchronously while the start gesture is still active.
-    await fullscreenManager.enter();
+    fullscreenManager.enter();
     if (sessionId !== gameSessionId) return;
     if (interactionMode.isGlowStickMode) {
       const initSuccess = await initGlowstickDetection();
@@ -2560,16 +2560,12 @@ function initPlayer() {
       document.querySelector("#overlay").className = "disabled";
       document.querySelector("#pause-btn").disabled = false;
       gameState.isPlaying = true;
-      gameState.isPaused = fullscreenManager.needsLandscape();
+      gameState.isPaused = false;
       gameLoop();
       
       startPseudoNoteGeneration();
       setupInteractionEvents();
-      if (gameState.isPaused) {
-        showPauseModal();
-      } else if (player && !player.isPlaying) {
-        player.requestPlay();
-      }
+      if (player && !player.isPlaying) player.requestPlay();
     },
 
     // get beat and lyrics information from TextAlive Player
@@ -2625,10 +2621,6 @@ function initPlayer() {
 
     onPlay() {
       manualPauseRequested = false;
-      if (fullscreenManager.needsLandscape()) {
-        showPauseModal();
-        return;
-      }
       gameState.isPaused = false;
       gameState.lastUpdateTime = null;
     },
@@ -2725,7 +2717,6 @@ async function restartGameFromPause() {
 }
 
 function continuePause() {
-  if (fullscreenManager.needsLandscape()) return;
   hidePauseModal();
   
   if (player && !player.isPlaying && gameState.isPlaying && gameState.isPaused) {
@@ -2739,7 +2730,7 @@ document.addEventListener('DOMContentLoaded', () => {
   preloadAudio();
   initPlayer();
   window.addEventListener('game-display-change', ({ detail }) => {
-    const { width, height, previousWidth, previousHeight, blocked, interrupted } = detail;
+    const { width, height, previousWidth, previousHeight, interrupted } = detail;
     if (previousWidth > 0 && previousHeight > 0 &&
         (width !== previousWidth || height !== previousHeight)) {
       for (const note of gameState.notes) {
@@ -2755,7 +2746,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hasRecentMouseMovement = false;
       if (glowstickKalmanFilter) glowstickKalmanFilter = new window.KalmanTracker();
     }
-    if (gameState.isPlaying && (blocked || interrupted)) showPauseModal();
+    if (gameState.isPlaying && interrupted) showPauseModal();
   });
   document.getElementById('pause-btn').addEventListener('click', showPauseModal);
   document.getElementById('loading-back-btn').addEventListener('click', exitGame);

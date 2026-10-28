@@ -73,6 +73,8 @@ const songs = [
 // flags and global status variables
 let currentSongIndex = 0;
 let previewAudio = null;
+let previewWanted = false;
+let selectionVisible = true;
 let userHasInteracted = false;
 let isPreviewMuted = false;
 let isAnimating = false;
@@ -209,29 +211,39 @@ function stopSpectrum() {
 }
 
 function createAudioElement() {
-  if (previewAudio) {
-    previewAudio.pause();
-    previewAudio = null;
-    source = null;
-  }
-  
-  previewAudio = new Audio();
-  previewAudio.loop = true;
-  previewAudio.volume = 0.8;
-  previewAudio.addEventListener('loadeddata', () => {
-    if (userHasInteracted && !isPreviewMuted) {
-      previewAudio.play();
+  disposePreviewAudio();
+  const audio = new Audio();
+  previewAudio = audio;
+  audio.loop = true;
+  audio.volume = 0.8;
+  const canPlay = () => audio === previewAudio && previewWanted && selectionVisible && userHasInteracted && !isPreviewMuted;
+  audio.addEventListener('loadeddata', () => {
+    if (canPlay()) {
+      const playing = audio.play();
+      playing?.then(() => { if (!canPlay()) audio.pause(); }, () => {});
     }
   });
-  
-  previewAudio.addEventListener('play', () => {
+  audio.addEventListener('play', () => {
+    if (!canPlay()) { audio.pause(); return; }
     initAudioContext();
     connectAudioSource();
+    stopSpectrum();
     drawSpectrum();
   });
-  previewAudio.addEventListener('pause', () => {
-    stopSpectrum();
-  });
+  audio.addEventListener('pause', () => { if (audio === previewAudio) stopSpectrum(); });
+}
+
+function disposePreviewAudio() {
+  stopSpectrum();
+  const audio = previewAudio;
+  previewAudio = null;
+  if (audio) {
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  }
+  source?.disconnect();
+  source = null;
 }
 
 // preview button to stop song preview and turn off the spectrum
@@ -292,7 +304,8 @@ function togglePreviewAudio() {
 }
 
 function playPreview(song) {
-  if (!song.preview || !userHasInteracted) return;
+  if (!song.preview || !userHasInteracted || !selectionVisible || isPreviewMuted) return;
+  previewWanted = true;
   
   createAudioElement();
   previewAudio.src = song.preview;
@@ -311,11 +324,8 @@ function playPreview(song) {
 }
 
 function stopPreview() {
-  if (previewAudio) {
-    previewAudio.pause();
-    previewAudio.currentTime = 0;
-  }
-  
+  previewWanted = false;
+  disposePreviewAudio();
   stopSpectrum();
   const coverContainer = document.getElementById('song-cover-container');
   if (coverContainer) {
@@ -898,6 +908,7 @@ function initSongSelection() {
 }
 
 function showSongSelection() {
+  selectionVisible = true;
   const songSelection = document.getElementById('song-selection');
   songSelection.classList.remove('hidden');
   songSelection.style.display = '';
@@ -912,6 +923,7 @@ function showSongSelection() {
 }
 
 function hideSongSelection(stopAudio = true) {
+  selectionVisible = false;
   const songSelection = document.getElementById('song-selection');
   songSelection.classList.add('hidden');
   if (stopAudio) {

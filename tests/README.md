@@ -26,7 +26,7 @@ live audio playback or upstream availability.
 ## Responsive presentation
 
 The same suite also checks fullscreen-before-lock ordering, denied APIs,
-portrait-start gating, manual resume after rotation, fullscreen exit pausing,
+non-blocking portrait starts, fullscreen exit pausing,
 late timer events, and note coordinates at nine viewport sizes. These are mocked
 API/geometry checks, not claims of native browser or CSS rendering coverage.
 
@@ -41,9 +41,12 @@ and enables preview audio in the same gesture. On a touch device, fullscreen is
 followed by landscape lock. Selection, gameplay, results and return-to-selection
 retain fullscreen; starting a song can retry if welcome fullscreen was denied.
 The suite checks one-shot entry, denied fullscreen, Enter after unrelated keys,
-shared pending requests and retained fullscreen/orientation when leaving gameplay.
+shared pending requests, mobile touch entry and restoration after fullscreen exit,
+and retained fullscreen/orientation when leaving gameplay.
 When either API is denied or unavailable, the game remains usable in the browser;
-portrait gameplay waits behind a rotate prompt. Rotate, then press Continue.
+there is no rotate overlay or orientation-based pause. Song loading never waits
+for fullscreen or orientation promises. Tests cover stalled presentation APIs,
+stale-request retries, and delayed preview callbacks after entering gameplay.
 Exiting fullscreen or hiding the tab pauses gameplay. Exiting fullscreen unlocks
 orientation. Embedded hosts must allow fullscreen and orientation locking;
 the application cannot override host/browser restrictions.

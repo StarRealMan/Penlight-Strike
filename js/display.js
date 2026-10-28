@@ -3,6 +3,9 @@
   let active = false;
   let presentationRequested = false;
   let pendingEntry = null;
+  let orientationLocked = false;
+  let lockAttempt = 0;
+  let pendingLock = null;
   let generation = 0;
   let wasFullscreen = false;
   let previousWidth = window.innerWidth;
@@ -10,16 +13,13 @@
 
   const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
   const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches;
-  const needsLandscape = () => active && isTouchDevice() && window.innerHeight > window.innerWidth;
 
   function update(interrupted = false) {
     const width = window.innerWidth;
     const height = window.innerHeight;
     document.documentElement.style.setProperty('--app-height', `${height}px`);
-    const prompt = document.getElementById('orientation-prompt');
-    if (prompt) prompt.hidden = !needsLandscape();
     window.dispatchEvent(new CustomEvent('game-display-change', {
-      detail: { width, height, previousWidth, previousHeight, blocked: needsLandscape(), interrupted }
+      detail: { width, height, previousWidth, previousHeight, interrupted }
     }));
     previousWidth = width;
     previousHeight = height;
@@ -29,42 +29,66 @@
     try { window.screen.orientation?.unlock?.(); } catch (_) { /* Unsupported browser. */ }
   }
 
-  function enter() {
-    if (pendingEntry) return pendingEntry;
-    presentationRequested = true;
-    // Start immediately, before the click/Enter user activation expires.
-    const entry = enterPresentation();
-    pendingEntry = entry.finally(() => { pendingEntry = null; });
-    return pendingEntry;
+  function lockLandscape() {
+    if (!presentationRequested || !isTouchDevice() || !window.screen.orientation?.lock) return;
+    if (orientationLocked && window.innerWidth > window.innerHeight) return;
+    if (pendingLock) return;
+    const attempt = ++lockAttempt;
+    pendingLock = attempt;
+    const timeout = setTimeout(() => { if (pendingLock === attempt) pendingLock = null; }, 1500);
+    const complete = () => {
+      clearTimeout(timeout);
+      if (pendingLock === attempt) pendingLock = null;
+    };
+    try {
+      Promise.resolve(window.screen.orientation.lock('landscape')).then(() => {
+        if (attempt !== lockAttempt) return;
+        if (!presentationRequested) unlock();
+        else orientationLocked = true;
+      }, () => { if (attempt === lockAttempt) orientationLocked = false; }).finally(complete);
+    } catch (_) { orientationLocked = false; complete(); }
   }
 
-  async function enterPresentation() {
+  function enter() {
+    presentationRequested = true;
+    if (isFullscreen()) {
+      lockLandscape();
+      return Promise.resolve();
+    }
+    if (pendingEntry) return pendingEntry;
     const currentGeneration = generation;
+    const root = document.documentElement;
+    let request;
     try {
-      if (!isFullscreen()) {
-        const root = document.documentElement;
-        // This call must occur synchronously in the user's click handler.
-        if (root.requestFullscreen) await root.requestFullscreen();
-        else if (root.webkitRequestFullscreen) await root.webkitRequestFullscreen();
+      // Must run directly in the click/touchend handler, before any await.
+      request = root.requestFullscreen ? root.requestFullscreen() : root.webkitRequestFullscreen?.();
+    } catch (_) { return Promise.resolve(); }
+    // A stalled browser request must not suppress every subsequent user gesture.
+    const entry = Promise.resolve(request).then(() => {
+      if (currentGeneration !== generation) {
+        if (!presentationRequested && isFullscreen()) return exit();
+        return;
       }
-    } catch (_) { /* Keep playing in the browser viewport when fullscreen is denied. */ }
-    if (currentGeneration !== generation || !presentationRequested) {
-      if (!presentationRequested) await exit();
-      return;
-    }
-    if (isTouchDevice() && window.screen.orientation?.lock) {
-      try {
-        await window.screen.orientation.lock('landscape');
-        if (!presentationRequested) unlock();
-      } catch (_) { /* The rotate prompt is the fallback for unavailable orientation locking. */ }
-    }
-    update();
+      lockLandscape();
+      update();
+    }, () => {});
+    pendingEntry = entry;
+    const timeout = setTimeout(() => { if (pendingEntry === entry) pendingEntry = null; }, 1500);
+    entry.finally(() => {
+      clearTimeout(timeout);
+      if (pendingEntry === entry) pendingEntry = null;
+    });
+    return entry;
   }
 
   async function exit() {
     active = false;
     presentationRequested = false;
     generation++;
+    pendingEntry = null;
+    orientationLocked = false;
+    lockAttempt++;
+    pendingLock = null;
     unlock();
     update();
     try {
@@ -77,7 +101,7 @@
 
   function setActive(value) {
     active = value;
-    // Menus/results retain fullscreen and landscape; only gameplay needs a rotate prompt.
+    // Presentation belongs to the whole site, independently of gameplay.
     update();
   }
 
@@ -90,10 +114,14 @@
       const fullscreen = isFullscreen();
       const interrupted = active && wasFullscreen && !fullscreen;
       if (wasFullscreen && !fullscreen) {
-        presentationRequested = false;
         generation++;
+        pendingEntry = null;
+        orientationLocked = false;
+        lockAttempt++;
+        pendingLock = null;
         unlock();
       }
+      if (fullscreen) { pendingEntry = null; lockLandscape(); }
       wasFullscreen = fullscreen;
       update(interrupted);
     };
@@ -102,11 +130,24 @@
     document.addEventListener('visibilitychange', () => {
       if (active && document.hidden) update(true);
     });
-    document.getElementById('orientation-retry')?.addEventListener('click', enter);
-    document.getElementById('orientation-exit')?.addEventListener('click', () => window.Player.exitGame());
-    document.getElementById('fullscreen-btn')?.addEventListener('click', enter);
+    // Mobile browsers may release fullscreen/rotation when backgrounded. Retry on
+    // the next real gesture anywhere in the site, not only when starting a song.
+    const restorePresentation = () => {
+      if (presentationRequested && isTouchDevice() &&
+          (!isFullscreen() || !orientationLocked || window.innerHeight > window.innerWidth)) enter();
+    };
+    document.addEventListener('touchend', restorePresentation, { passive: true });
+    document.addEventListener('click', restorePresentation);
+    window.addEventListener('pageshow', () => {
+      generation++;
+      lockAttempt++;
+      pendingLock = null;
+      pendingEntry = null;
+      orientationLocked = false;
+      update();
+    });
   });
 
-  window.GameDisplay = { enter, exit, isFullscreen, needsLandscape, setActive, update, isActive: () => active };
+  window.GameDisplay = { enter, exit, isFullscreen, setActive, update, isActive: () => active };
   window.FullscreenManager = window.GameDisplay;
 })();
