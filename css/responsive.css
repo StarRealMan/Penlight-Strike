@@ -54,7 +54,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #7fffff; outline-offs
 .song-title { font-size: clamp(22px, 3vw, 40px); max-width: 100%; overflow-wrap: anywhere; }
 .cover-carousel { height: calc(var(--cover-size) + 24px); flex: none; }
 .cover-item, .cover-item.main-cover, .cover-item.side-cover { width: var(--cover-size); height: var(--cover-size); }
-.audio-spectrum, #spectrum-canvas { width: var(--cover-size); height: 32px; flex-shrink: 0; }
+.audio-spectrum { width: var(--cover-size); height: 32px; flex-shrink: 0; }
 .song-details { gap: 4px; max-width: min(92%, 700px); }
 .song-details p { font-size: clamp(14px, 1.6vw, 22px); overflow-wrap: anywhere; }
 .difficulty-buttons { gap: 12px; flex-wrap: wrap; justify-content: center; }
@@ -79,7 +79,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid #7fffff; outline-offs
 .health-display { top: calc(12px + var(--safe-top)); left: calc(12px + var(--safe-left)); gap: 6px; }
 .health-icon { width: 20px; height: 32px; }
 .score-display { top: calc(10px + var(--safe-top)); right: calc(12px + var(--safe-right)); }
-.score-progress-container { width: clamp(70px, 15vw, 200px); left: 0; height: 16px; }
+.score-integrated-container { grid-template-columns: minmax(max-content, clamp(140px, 16vw, 220px)) auto; }
+.score-progress-container { height: 16px; }
 .grade-circle { width: 36px; height: 36px; }
 .grade-display { font-size: 22px; }
 .score-number { font-size: clamp(16px, 2vw, 26px); }
@@ -180,7 +181,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid #7fffff; outline-offs
 @media (max-height: 420px) {
   .modal-buttons { flex-direction: row; flex-wrap: wrap; justify-content: center; }
   .modal-btn { min-width: 120px; }
-  .score-integrated-container { gap: 2px; }
+  .score-integrated-container { row-gap: 4px; }
   .character-img { width: min(25vw, 45vh); }
   .dialogue-box { display: none !important; }
 }
