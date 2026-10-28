@@ -669,3 +669,27 @@ test('mobile welcome touch enters immediately and suppresses the synthetic click
   click();await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(calls,['fullscreen','audio','landscape']);
 });
+
+test('first selection reveal recalculates spacing using the visible cover width', () => {
+  const {h}=previewHarness();let visible=false;
+  h.context.getComputedStyle=()=>({width:visible?'160px':'280px'});
+  h.context.carousel={get offsetWidth(){return visible?400:0}};
+  h.context.document.getElementById('song-selection').classList.remove=()=>{visible=true};
+  h.run(`coverCarousel=carousel;coverElements=Array.from({length:5},()=>({style:{}}));
+    updateCoverPositions();userHasInteracted=false;initAudioContext=playPreview=()=>{};`);
+  assert.match(h.run('coverElements[1].style.transform'),/-304px/);
+  h.run('enableAudioAfterInteraction()');
+  assert.match(h.run('coverElements[1].style.transform'),/-184px/);
+  assert.match(h.run('coverElements[3].style.transform'),/184px/);
+});
+
+test('carousel size changes after fullscreen refresh spacing without a cover click', () => {
+  const {h}=previewHarness();let width=220;let resize;
+  h.context.getComputedStyle=()=>({width:`${width}px`});
+  h.context.window.ResizeObserver=class {constructor(callback){resize=callback}observe(){}};
+  h.run('coverCarousel={offsetWidth:400};coverElements=Array.from({length:5},()=>({style:{}}));setupResponsiveListener();refreshCoverLayout();');
+  width=160;resize();
+  assert.match(h.run('coverElements[3].style.transform'),/184px/);
+  width=230;h.run('showSongSelection()');
+  assert.match(h.run('coverElements[3].style.transform'),/254px/);
+});

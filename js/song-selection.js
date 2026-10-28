@@ -362,6 +362,7 @@ function enableAudioAfterInteraction() {
     const songSelection = document.getElementById('song-selection');
     if (songSelection) {
       songSelection.classList.remove('hidden');
+      refreshCoverLayout();
     }
     
     const currentSong = getCurrentSong();
@@ -746,25 +747,31 @@ function updateCoverDataIndices() {
   });
 }
 
+function refreshCoverLayout() {
+  if (!coverCarousel || !coverCarousel.offsetWidth || isAnimating) return;
+  updateCoverPositions();
+  setupCanvasSize();
+}
+
 function setupResponsiveListener() {
+  // Initialization happens while selection is display:none. Measure again when
+  // shown, and whenever fullscreen/rotation changes its actual layout size.
+  if (window.ResizeObserver) {
+    const observer = new window.ResizeObserver(refreshCoverLayout);
+    observer.observe(coverCarousel);
+  }
   let resizeTimeout;
   
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      if (!isAnimating) {
-        updateCoverPositions();
-        setupCanvasSize();
-      }
+      refreshCoverLayout();
     }, 100);
   });
   
   window.addEventListener('orientationchange', () => {
     setTimeout(() => {
-      if (!isAnimating) {
-        updateCoverPositions();
-        setupCanvasSize();
-      }
+      refreshCoverLayout();
     }, 200);
   });
 }
@@ -912,6 +919,7 @@ function showSongSelection() {
   const songSelection = document.getElementById('song-selection');
   songSelection.classList.remove('hidden');
   songSelection.style.display = '';
+  refreshCoverLayout();
   document.getElementById('tutorial-page').classList.add('hidden');
   document.getElementById('player-page').classList.add('hidden'); 
   updatePreviewButton();

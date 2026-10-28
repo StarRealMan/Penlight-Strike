@@ -1095,9 +1095,11 @@
 
 /* Heatmap interface styles */
 #heatmap-interface {
-  position: absolute;
-  bottom: 110px; /* Above FPS display */
-  left: 20px;
+  position: fixed;
+  bottom: calc(12px + var(--safe-bottom, 0px));
+  left: calc((100% + var(--safe-left, 0px) - var(--safe-right, 0px)) / 2);
+  transform: translateX(-50%);
+  max-width: calc(100vw - 24px - var(--safe-left, 0px) - var(--safe-right, 0px));
   color: #87CEEB;
   font-family: 'Rubik', sans-serif;
   font-weight: bold;
@@ -1106,7 +1108,7 @@
   border-radius: 8px;
   border: 1px solid rgba(135, 206, 235, 0.5);
   backdrop-filter: blur(4px);
-  transform-origin: bottom left;
+  transform-origin: bottom center;
   transition: all 0.3s ease;
   min-width: 60px;
   pointer-events: auto;
@@ -1142,7 +1144,7 @@
   display: block;
   margin: 8px;
   max-width: 120px;
-  max-height: 120px;
+  max-height: clamp(40px, calc(var(--app-height, 100vh) - 180px), 120px);
   border-radius: 4px;
   border: 1px solid rgba(135, 206, 235, 0.3);
 }
