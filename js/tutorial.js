@@ -37,6 +37,8 @@ function updateTutorialDisplay() {
   const totalPages = 6;
 
   validateCurrentPage();
+  const content = document.querySelector('.tutorial-content');
+  if (content) content.scrollTop = 0;
   
   const titleElement = document.querySelector('.tutorial-title');
   if (titleElement) {

@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Penlight Strike</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css"/>
-    <link rel="stylesheet" href="./css/main.css?v=20261028-menu-heatmap" />
+    <link rel="stylesheet" href="./css/main.css?v=20261029-tutorial-nav" />
     <link rel="icon" href="icon/favicon.ico" type="image/x-icon">
   </head>
   <body>
@@ -218,17 +218,17 @@
             </div>
           </div>
         </div>
-        <div class="tutorial-pagination">
-          <button id="prev-tutorial" class="page-btn">
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <span class="page-info">
-            <span id="current-page">1</span>/<span id="total-pages">3</span>
-          </span>
-          <button id="next-tutorial" class="page-btn">
-            <i class="fas fa-chevron-right"></i>
-          </button>
-        </div>
+      </div>
+      <div class="tutorial-pagination">
+        <button id="prev-tutorial" class="page-btn" aria-label="Previous tutorial page">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span class="page-info">
+          <span id="current-page">1</span>/<span id="total-pages">6</span>
+        </span>
+        <button id="next-tutorial" class="page-btn" aria-label="Next tutorial page">
+          <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
     </div>
 
@@ -406,7 +406,7 @@
 
     <script src="./js/welcome.js?v=20261028-mobile-entry2"></script>
     <script src="./js/song-selection.js?v=20261028-menu-heatmap"></script>
-    <script src="./js/tutorial.js"></script>
+    <script src="./js/tutorial.js?v=20261029-tutorial-nav"></script>
     <script src="./js/track.js"></script>
     <script src="./js/display.js?v=20261028-mobile-entry2"></script>
     <script src="./js/player.js?v=20261028-mobile-entry2"></script>
