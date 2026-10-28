@@ -92,6 +92,8 @@ let gameState = {
   score: 0,
   combo: 0,
   maxCombo: 0,
+  completedNotes: 0,
+  comboBroken: false,
   notes: [],
   pseudoNotes: [],
   isPlaying: false,
@@ -426,7 +428,8 @@ function processGlowstickInteraction(now) {
     const currentTime = performance.now();
     const filteredPosition = glowstickKalmanFilter.getCurrentPosition(currentTime);
     
-    if (filteredPosition && filteredPosition.confidence > 0.3) {
+    if (filteredPosition && filteredPosition.confidence > 0.3 &&
+        currentTime - glowstickKalmanFilter.lastMeasurementTime <= 250) {
       position = {
         x: filteredPosition.x,
         y: filteredPosition.y,
@@ -920,7 +923,7 @@ function initFPSDisplay() {
   
   fpsData.frameCount = 0;
   fpsData.fps = 60;
-  fpsData.lastFpsUpdate = performance.now();
+  fpsData.lastFpsUpdate = Date.now();
 }
 
 // precalculate scores to make sure the max score is 1000000
@@ -1436,10 +1439,12 @@ function handleSlash(x, y) {
   
   let hitNote = null;
   let hitDistance = Infinity;
-  let OutDistance = Infinity;
+  let nearestEdgeDistance = Infinity;
+  let hasInsideHit = false;
   
   for (const note of gameState.notes) {
     if (note.isHit) continue;
+    let hitMargin;
     
     if (note.type === 'pseudo') {
       if (glowstickModeActive) {
@@ -1477,7 +1482,8 @@ function handleSlash(x, y) {
       const noteCenterY = noteRect.top + 12;
       const distance = Math.sqrt((x - noteCenterX) ** 2 + (y - noteCenterY) ** 2);
     
-      if (distance < hitDistance) {
+      if (!hasInsideHit || distance < hitDistance) {
+        hasInsideHit = true;
         hitNote = note;
         hitDistance = distance;
       }
@@ -1487,9 +1493,9 @@ function handleSlash(x, y) {
       const edgeDistance = getDistanceToRect(x, y, noteRect);
       
       if (edgeDistance < hitMargin) {
-        if (hitDistance == Infinity && edgeDistance < OutDistance) {
+        if (!hasInsideHit && edgeDistance < nearestEdgeDistance) {
           hitNote = note;
-          OutDistance = edgeDistance;
+          nearestEdgeDistance = edgeDistance;
           const noteCenterX = noteRect.left + (noteRect.right - noteRect.left) / 2;
           const noteCenterY = noteRect.top + 12;
           hitDistance = Math.sqrt((x - noteCenterX) ** 2 + (y - noteCenterY) ** 2);
@@ -1533,6 +1539,7 @@ function handleNoteHit(note, result, distance) {
   if (result === 'pseudo') {
     playGameAudio('explosion');
     gameState.combo = 0;
+    gameState.comboBroken = true;
     updateComboDisplay();
     checkGameOver();
     
@@ -1565,6 +1572,7 @@ function handleNoteHit(note, result, distance) {
   const hitQuality = getHitQuality(distance, note.width);
   gameState.score += scoreConfig[hitQuality];
   gameState.combo++;
+  gameState.completedNotes++;
   gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo);
   
   createEffect('hit', note.x + note.width / 2, note.y + 12, hitQuality);
@@ -1908,6 +1916,27 @@ function showHitResult(quality) {
   }, 1500);
 }
 
+const beatTimers = new Set();
+let manualPauseRequested = false;
+
+function scheduleBeatCallback(callback, delay) {
+  const sessionId = gameSessionId;
+  const id = setTimeout(() => {
+    beatTimers.delete(id);
+    if (sessionId === gameSessionId && gameState.isPlaying && !gameState.isPaused) callback();
+  }, delay);
+  beatTimers.add(id);
+}
+
+function clearBeatCallbacks() {
+  for (const id of beatTimers) clearTimeout(id);
+  beatTimers.clear();
+  updateCursorState(false);
+  lastBeatState = 'low';
+  const character = document.getElementById('miku-character');
+  if (character) character.style.transform = '';
+}
+
 let activeBeat = false;
 function updateCursorState(isHigh) {
   const playerPage = document.getElementById('player-page');
@@ -1939,7 +1968,7 @@ function updateMikuState(isHigh, duration) {
 
   mikuImg.style.transition = `transform ${duration / 2}ms ease-in-out`;
   mikuImg.style.transform = 'rotateY(90deg)';
-  setTimeout(() => {
+  scheduleBeatCallback(() => {
     gameState.mikuState = newState;
     mikuImg.src = `images/miku-${newState}.png`;
     mikuImg.style.transition = null;
@@ -2142,6 +2171,7 @@ function gameLoop() {
       if (!note.isHit && note.type !== 'pseudo') {
         playGameAudio('miss');
         gameState.miss++;
+        gameState.comboBroken = true;
         gameState.combo = 0;
         showHitResult('miss');
         updateComboDisplay();
@@ -2186,6 +2216,8 @@ function scheduleGameEnd(result, delay = 2000) {
 
 function invalidateGameSession() {
   gameSessionId++;
+  clearBeatCallbacks();
+  manualPauseRequested = false;
   gameState.isPlaying = false;
   gameState.isPaused = false;
   cancelGameEnd();
@@ -2230,6 +2262,7 @@ function checkGameOver() {
 async function endGame(result) {
   if (!gameState.isPlaying) return;
   const sessionId = gameSessionId;
+  clearBeatCallbacks();
   cancelGameEnd();
   cancelAnimationFrame(gameFrameId);
   gameFrameId = null;
@@ -2259,6 +2292,9 @@ async function endGame(result) {
     miss: gameState.miss,
     score: Math.floor(gameState.score),
     maxCombo: gameState.maxCombo,
+    completedNotes: gameState.completedNotes,
+    totalNotes: songAnalysis.totalNotes,
+    comboBroken: gameState.comboBroken,
     health: gameState.health,
     grade: finalGrade,
     currentSong: gameState.currentSong,
@@ -2341,6 +2377,11 @@ function resetGameState() {
   gameState.score = 0;
   gameState.combo = 0;
   gameState.maxCombo = 0;
+  gameState.completedNotes = 0;
+  gameState.comboBroken = false;
+  lastBeatState = 'low';
+  lastPositionX = 0;
+  lastPositionY = 0;
   gameState.grade = 'F';
   gameState.beatState = 'low';
   gameState.mikuState = 'low';
@@ -2526,17 +2567,19 @@ function initPlayer() {
       if (!video) return;
 
       const futureTime = position + (beatDuration / 2);
-      const futureBeats = player.findBeatChange(gameState.lastTime, futureTime);
-      if (futureBeats.entered.length > 0) {
+      const previousFutureTime = gameState.lastTime < 0 ? -1 : gameState.lastTime + beatDuration / 2;
+      const futureBeats = player.findBeatChange(previousFutureTime, futureTime);
+      if (futureBeats.entered.length > 0 &&
+          futureBeats.entered[futureBeats.entered.length - 1].index !== gameState.currentBeatIndex) {
         const latestBeat = futureBeats.entered[futureBeats.entered.length - 1];
         gameState.currentBeatIndex = latestBeat.index;
         
         updateCursorState(true);
-        setTimeout(() => {
+        scheduleBeatCallback(() => {
           updateCursorState(false);
         }, beatDuration);
         const isEvenBeat = (latestBeat.index % beatBase) === 0;
-        setTimeout(() => {
+        scheduleBeatCallback(() => {
           updateMikuState(isEvenBeat, beatDuration);
         }, beatDelay);
         
@@ -2568,6 +2611,7 @@ function initPlayer() {
     },
 
     onPlay() {
+      manualPauseRequested = false;
       if (fullscreenManager.needsLandscape()) {
         showPauseModal();
         return;
@@ -2578,13 +2622,14 @@ function initPlayer() {
 
     onPause() {
       gameState.isPaused = true;
+      clearBeatCallbacks();
       
       if (player.video && player.timer) {
         const position = player.timer.position;
         const duration = player.video.duration;
         const isNearEnd = duration - position < 1000;
         
-        if (isNearEnd && gameState.isPlaying && gameState.health > 0) {
+        if (isNearEnd && !manualPauseRequested && gameState.isPlaying && gameState.health > 0) {
           const gameOverOverlay = document.getElementById('game-over-overlay');
           if (gameOverOverlay) {
             gameOverOverlay.classList.add('active');
@@ -2615,6 +2660,8 @@ function setCurrentSong(song) {
 }
 
 function showPauseModal() {
+  manualPauseRequested = true;
+  clearBeatCallbacks();
   gameState.isPaused = true;
   const modal = document.getElementById('pause-modal');
   if (modal) {

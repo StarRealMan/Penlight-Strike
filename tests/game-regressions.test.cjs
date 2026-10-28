@@ -364,3 +364,75 @@ test('piano spawning follows actual rendered bounds on different screens', () =>
     assert.ok(h.run('gameState.notes[0].y')<height);
   }
 });
+
+test('hit selection prefers containing notes over margins, then the nearest margin regardless of order', () => {
+  const h=harness();
+  h.run(`gameState.isPlaying=true;gameState.beatState='high';
+    handleNoteHit=note=>{window.selected=note.id};updateScoreDisplay=()=>{};
+    function candidate(id,x,width){return {id,x,y:0,element:{style:{width:String(width)}},hit(){return 'hit'}}}`);
+  h.run("gameState.notes=[candidate('margin',90,5),candidate('inside',0,200)];handleSlash(100,12)");
+  assert.equal(h.context.window.selected,'inside');
+  for(const reversed of [false,true]) {
+    h.run(`gameState.notes=[candidate('far',60,20),candidate('near',85,10)];
+      ${reversed?'gameState.notes.reverse();':''}handleSlash(100,12);`);
+    assert.equal(h.context.window.selected,'near');
+  }
+  assert.equal('hitMargin' in h.context,false);
+});
+
+test('look-ahead beat intervals do not overlap across successive time updates', () => {
+  const h=harness();playerWithStopEvents(h);const intervals=[];
+  h.context.findBeat=(from,to)=>{intervals.push([from,to]);return {entered:from<100&&to>=100?[{index:1}]:[]}};
+  h.run(`beatDuration=100;beatDelay=40;gameState.lastTime=-1;
+    player.findBeatChange=findBeat;player.video={findWordChange:()=>({entered:[]})};
+    window.highCount=0;updateCursorState=high=>{if(high)window.highCount++};`);
+  h.listeners.onTimeUpdate(60);h.listeners.onTimeUpdate(80);h.listeners.onTimeUpdate(100);
+  assert.deepEqual(intervals,[[-1,110],[110,130],[130,150]]);
+  assert.equal(h.context.window.highCount,1);
+});
+
+test('pause clears delayed beat visuals and invalidated callbacks cannot affect the next session', () => {
+  const h=harness();h.run('gameState.isPlaying=true;window.runs=0;scheduleBeatCallback(()=>window.runs++,100);');
+  const stale=[...h.timers.values()][0].fn;
+  h.run('showPauseModal();');assert.equal(h.timers.size,0);
+  h.run('invalidateGameSession();gameState.isPlaying=true;gameState.isPaused=false;');
+  stale();assert.equal(h.context.window.runs,0);
+});
+
+test('manual pause in the last second does not schedule completion', () => {
+  const h=harness();playerWithStopEvents(h);
+  h.run('player.video={duration:10000};player.timer={position:9500};showPauseModal();');
+  assert.equal(h.timers.size,0);
+  assert.equal(h.run('gameState.isPaused'),true);
+});
+
+test('achievements require all notes cleared without a broken combo, and low grade alone is not failure', () => {
+  const h=harness();vm.runInContext(source('result.js'),h.context);
+  const data={totalNotes:2,completedNotes:2,comboBroken:false,miss:0,bad:0,good:0,great:0,perfect:2,health:4,result:'completed',grade:'S'};
+  const check=(changes,expected)=>{h.context.resultInput={...data,...changes};h.run('calculateAchievement(resultInput)');assert.equal(h.run('resultState.achievement'),expected)};
+  check({},'allPerfect');check({great:1},'fullCombo');
+  check({comboBroken:true},'liveClear');check({completedNotes:1},'liveClear');
+  check({totalNotes:0,completedNotes:0},'liveClear');
+  check({grade:'F',miss:1},'liveClear');check({result:'failed'},'liveFailed');
+});
+
+test('red-note contact records a combo break even without missed lyric notes', () => {
+  const h=harness();
+  h.run(`updateComboDisplay=()=>{};gameState.combo=10;
+    handleNoteHit({type:'pseudo'},'pseudo',0);`);
+  assert.equal(h.run('gameState.comboBroken'),true);
+  assert.equal(h.run('gameState.combo'),0);assert.equal(h.run('gameState.miss'),0);
+});
+
+test('lost glowstick measurements do not keep hitting notes', () => {
+  const h=harness();let clock=100;
+  h.context.performance.now=()=>clock;
+  h.run(`glowstickModeActive=true;gameState.isPlaying=true;window.hits=0;
+    glowstickKalmanFilter=new KalmanTracker();glowstickKalmanFilter.initialize({x:10,y:10,timestamp:100,confidence:1});
+    handleSlash=()=>window.hits++;updateGlowstickCursor=createGlowstickTrail=()=>{};`);
+  h.context.document.getElementById=()=>null;
+  h.run('processGlowstickInteraction(100)');assert.equal(h.context.window.hits,1);
+  clock=400;h.run('processGlowstickInteraction(400)');assert.equal(h.context.window.hits,1);
+  h.run('glowstickKalmanFilter.update({x:12,y:12,timestamp:400,confidence:1})');
+  clock=420;h.run('processGlowstickInteraction(420)');assert.equal(h.context.window.hits,2);
+});
