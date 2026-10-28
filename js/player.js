@@ -1326,7 +1326,7 @@ function showPlayer() {
 function hidePlayer() {
   document.getElementById('game-ui').classList.add('hidden');
   document.getElementById('player-page').classList.add('hidden');
-  fullscreenManager.exit();
+  fullscreenManager.setActive(false);
   
   if (window.SongSelection) {
     window.SongSelection.show();
@@ -2474,7 +2474,6 @@ function showSongLoadError(error, sessionId) {
   console.error('Unable to load song:', error);
   cleanupGame();
   fullscreenManager.setActive(false);
-  fullscreenManager.exit();
   document.querySelector('#overlay').className = 'loading-failed';
   document.getElementById('loading-error-message').textContent =
     error?.message === 'Card data resolver is unavailable'

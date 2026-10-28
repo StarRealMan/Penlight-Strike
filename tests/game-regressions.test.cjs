@@ -24,6 +24,7 @@ function harness() {
   const document = {
     documentElement: {style: {setProperty() {}}},
     addEventListener(name, callback) { listen(documentEvents, name, callback); }, querySelector() { return element(); },
+    removeEventListener(name, callback) { documentEvents.set(name, (documentEvents.get(name) || []).filter(fn => fn !== callback)); },
     querySelectorAll() { return []; }, createElement: element,
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, element());
@@ -49,7 +50,7 @@ function harness() {
   vm.runInContext(source('track.js'), context);
   const run = code => vm.runInContext(code, context);
   return { context, run, timers, frames, elements,
-    emitDocument: name => emit(documentEvents, name),
+    emitDocument: (name, event) => emit(documentEvents, name, event),
     get listeners() { return listeners; },
     fire(id) { const timer = timers.get(id); timers.delete(id); return timer.fn(); } };
 }
@@ -335,7 +336,76 @@ test('health depletion still ends the game as failed and cancels volume fading',
   assert.equal(h.timers.size,0);
 });
 
-test('mobile start requests fullscreen in the click turn, then locks landscape', async () => {
+test('mobile welcome entry requests fullscreen then landscape without activating gameplay', async () => {
+  const h=harness();const calls=[];
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.window.innerWidth=390;h.context.window.innerHeight=844;
+  h.context.document.documentElement.requestFullscreen=async()=>{calls.push('fullscreen');h.context.document.fullscreenElement={};};
+  h.context.window.screen.orientation={lock:async value=>calls.push(value)};
+  await h.run('fullscreenManager.enter()');
+  assert.deepEqual(calls,['fullscreen','landscape']);
+  assert.equal(h.run('fullscreenManager.isActive()'),false);
+  assert.equal(h.elements.get('orientation-prompt').hidden,true);
+});
+
+async function welcomeHarness() {
+  const h=harness(); const clicks=new Set(); const calls=[];
+  const welcome=h.context.document.getElementById('welcome-page');
+  welcome.addEventListener=(name, fn)=>{if(name==='click')clicks.add(fn)};
+  welcome.removeEventListener=(name, fn)=>{if(name==='click')clicks.delete(fn)};
+  h.context.window.SongSelection={enableAudio(){calls.push('audio')}};
+  h.context.document.documentElement.requestFullscreen=async()=>{calls.push('fullscreen');h.context.document.fullscreenElement={};};
+  vm.runInContext(source('welcome.js'),h.context);
+  h.run('preloadResources=async()=>{};');
+  await h.run('initWelcomePage()');
+  return {h,calls,click:()=>[...clicks].forEach(fn=>fn())};
+}
+
+test('welcome click requests fullscreen and enables audio in the same gesture, once', async () => {
+  const {h,calls,click}=await welcomeHarness();
+  click();
+  assert.deepEqual(calls,['fullscreen','audio']);
+  click();h.emitDocument('keydown',{key:'Enter'});
+  assert.deepEqual(calls,['fullscreen','audio']);
+  await h.run('fullscreenManager.enter()');
+});
+
+test('other keys do not consume the welcome Enter handler and denied fullscreen still enters', async () => {
+  const {h,calls}=await welcomeHarness();
+  h.context.document.documentElement.requestFullscreen=async()=>{calls.push('denied');throw Error('denied')};
+  h.emitDocument('keydown',{key:'Tab'});
+  h.emitDocument('keydown',{key:'Enter',repeat:true});
+  assert.deepEqual(calls,[]);
+  h.emitDocument('keydown',{key:'Enter',repeat:false});
+  assert.deepEqual(calls,['denied','audio']);
+  await h.run('fullscreenManager.enter()');
+});
+
+test('starting gameplay while welcome fullscreen is pending shares the request and keeps its lock', async () => {
+  const h=harness();let release;let requests=0;let locks=0;
+  h.context.window.matchMedia=()=>({matches:true});
+  h.context.document.documentElement.requestFullscreen=()=>{requests++;return new Promise(resolve=>{release=()=>{h.context.document.fullscreenElement={};resolve()}})};
+  h.context.window.screen.orientation={lock:async()=>{locks++}};
+  const welcome=h.run('fullscreenManager.enter()');
+  h.run('fullscreenManager.setActive(true)');
+  const game=h.run('fullscreenManager.enter()');
+  assert.equal(requests,1);
+  release();await Promise.all([welcome,game]);
+  assert.equal(locks,1);
+});
+
+test('returning to selection preserves fullscreen and the mobile orientation lock', async () => {
+  const h=harness();let unlocks=0;let exits=0;
+  h.context.document.fullscreenElement={};
+  h.context.document.exitFullscreen=async()=>{exits++};
+  h.context.window.screen.orientation={unlock(){unlocks++}};
+  h.run('fullscreenManager.setActive(true);hidePlayer();');
+  assert.equal(h.run('fullscreenManager.isFullscreen()'),true);
+  assert.equal(h.run('fullscreenManager.isActive()'),false);
+  assert.equal(exits,0);assert.equal(unlocks,0);
+});
+
+test('mobile game start can still request fullscreen when entry was unavailable', async () => {
   const h=harness();const calls=[];
   h.context.window.matchMedia=()=>({matches:true});
   h.context.document.documentElement.requestFullscreen=async()=>{calls.push('fullscreen');h.context.document.fullscreenElement={};};

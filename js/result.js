@@ -244,7 +244,7 @@ function backToSongSelection() {
   hideResult();
   
   if (window.FullscreenManager) {
-    window.FullscreenManager.exit();
+    window.FullscreenManager.setActive(false);
   }
   
   if (window.SongSelection) {

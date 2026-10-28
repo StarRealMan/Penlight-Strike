@@ -36,9 +36,14 @@ tutorial, gameplay, pause and results. Menus must scroll without clipping their
 controls; the piano, HUD and notes must stay aligned in gameplay. Test mobile
 browser bars, safe-area insets, desktop resizing and touch taps as well as drags.
 
-On a touch device, starting requests document fullscreen, then landscape lock.
+Clicking the loaded welcome page (or pressing Enter) requests document fullscreen
+and enables preview audio in the same gesture. On a touch device, fullscreen is
+followed by landscape lock. Selection, gameplay, results and return-to-selection
+retain fullscreen; starting a song can retry if welcome fullscreen was denied.
+The suite checks one-shot entry, denied fullscreen, Enter after unrelated keys,
+shared pending requests and retained fullscreen/orientation when leaving gameplay.
 When either API is denied or unavailable, the game remains usable in the browser;
 portrait gameplay waits behind a rotate prompt. Rotate, then press Continue.
-Exiting fullscreen or hiding the tab pauses gameplay. Returning to selection
-unlocks orientation. Embedded hosts must allow fullscreen and orientation locking;
+Exiting fullscreen or hiding the tab pauses gameplay. Exiting fullscreen unlocks
+orientation. Embedded hosts must allow fullscreen and orientation locking;
 the application cannot override host/browser restrictions.

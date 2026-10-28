@@ -1,6 +1,8 @@
 // Viewport and presentation state. Gameplay coordinates stay in CSS pixels.
 (() => {
   let active = false;
+  let presentationRequested = false;
+  let pendingEntry = null;
   let generation = 0;
   let wasFullscreen = false;
   let previousWidth = window.innerWidth;
@@ -27,7 +29,16 @@
     try { window.screen.orientation?.unlock?.(); } catch (_) { /* Unsupported browser. */ }
   }
 
-  async function enter() {
+  function enter() {
+    if (pendingEntry) return pendingEntry;
+    presentationRequested = true;
+    // Start immediately, before the click/Enter user activation expires.
+    const entry = enterPresentation();
+    pendingEntry = entry.finally(() => { pendingEntry = null; });
+    return pendingEntry;
+  }
+
+  async function enterPresentation() {
     const currentGeneration = generation;
     try {
       if (!isFullscreen()) {
@@ -37,14 +48,14 @@
         else if (root.webkitRequestFullscreen) await root.webkitRequestFullscreen();
       }
     } catch (_) { /* Keep playing in the browser viewport when fullscreen is denied. */ }
-    if (currentGeneration !== generation || !active) {
-      if (!active) await exit();
+    if (currentGeneration !== generation || !presentationRequested) {
+      if (!presentationRequested) await exit();
       return;
     }
     if (isTouchDevice() && window.screen.orientation?.lock) {
       try {
         await window.screen.orientation.lock('landscape');
-        if (!active) unlock();
+        if (!presentationRequested) unlock();
       } catch (_) { /* The rotate prompt is the fallback for unavailable orientation locking. */ }
     }
     update();
@@ -52,6 +63,7 @@
 
   async function exit() {
     active = false;
+    presentationRequested = false;
     generation++;
     unlock();
     update();
@@ -65,8 +77,7 @@
 
   function setActive(value) {
     active = value;
-    generation++;
-    if (!value) unlock();
+    // Menus/results retain fullscreen and landscape; only gameplay needs a rotate prompt.
     update();
   }
 
@@ -78,6 +89,11 @@
     const fullscreenChanged = () => {
       const fullscreen = isFullscreen();
       const interrupted = active && wasFullscreen && !fullscreen;
+      if (wasFullscreen && !fullscreen) {
+        presentationRequested = false;
+        generation++;
+        unlock();
+      }
       wasFullscreen = fullscreen;
       update(interrupted);
     };
