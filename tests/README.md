@@ -15,6 +15,14 @@ These checks do not replace browser testing with TextAlive playback and a real
 camera. Before release, smoke-test exit/restart, song completion, and repeated
 camera-mode entry/exit on the target desktop and mobile browsers.
 
+Song loading checks cover rejected/empty responses, return-to-selection when
+stopping fails, clearing errors on a new attempt, and ignoring late ready/error
+events after exit. TextAlive is pinned to 0.4.0 because the unversioned CDN moved
+to a card-resolver flow whose endpoint currently redirects instead of returning
+the expected JSON. Before upgrading, verify all six configured Piapro songs and
+their explicit analysis/lyric IDs in a browser. The mocked suite does not confirm
+live audio playback or upstream availability.
+
 ## Responsive presentation
 
 The same suite also checks fullscreen-before-lock ordering, denied APIs,

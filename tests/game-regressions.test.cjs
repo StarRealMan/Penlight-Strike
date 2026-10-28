@@ -69,6 +69,82 @@ function playerWithStopEvents(h) {
     player.requestStop = async () => {stopEvent();};`);
 }
 
+function songLoadingHarness() {
+  const h = harness();
+  h.context.document.querySelector = selector => selector.startsWith('#')
+    ? h.context.document.getElementById(selector.slice(1)) : null;
+  h.run(`initPlayer();
+    initHealthDisplay = initFPSDisplay = updateScoreDisplay = updateComboDisplay = () => {};
+    getCurrentDifficulty = () => 'normal';
+    window.difficultyConfig = {normal: {health: 4}};
+    player.requestStop = async () => {};
+    createDynamicBeatGlowAnimation = () => {window.animationCreated = true;};`);
+  return h;
+}
+
+test('rejected song loading displays a recoverable error and ignores late ready events', async () => {
+  const h = songLoadingHarness();
+  h.run(`player.createFromSongUrl = async () => {throw new Error('Card data resolver is unavailable');};`);
+  await h.run("startGame({id:'streetlight'})");
+  assert.equal(h.elements.get('overlay').className, 'loading-failed');
+  assert.equal(h.elements.get('loading-error').hidden, false);
+  assert.match(h.elements.get('loading-error-message').textContent, /TextAlive/);
+  assert.equal(h.run('fullscreenManager.isActive()'), false);
+  assert.equal(h.run('gameState.isPlaying'), false);
+  // Neither event may touch unavailable data or start playing after failure.
+  h.listeners.onVideoReady({}); h.listeners.onTimerReady();
+  assert.equal(h.run('gameState.isPlaying'), false);
+  assert.equal(h.timers.size + h.frames.size, 0);
+});
+
+test('empty song data and non-Error rejections also produce a recoverable loading error', async () => {
+  for (const body of ['return null;', 'throw null;']) {
+    const h = songLoadingHarness();
+    h.run(`player.createFromSongUrl = async () => {${body}};`);
+    await h.run("startGame({id:'streetlight'})");
+    assert.equal(h.elements.get('loading-error').hidden, false);
+    assert.equal(h.run('fullscreenManager.isActive()'), false);
+  }
+});
+
+test('a new successful song load clears the previous error and keeps the configured video IDs', async () => {
+  const h = songLoadingHarness();
+  h.run(`player.createFromSongUrl = async () => {throw new Error('offline');};`);
+  await h.run("startGame({id:'streetlight'})");
+  h.run(`player.createFromSongUrl = async (url, options) => {
+    window.loadedUrl = url; window.loadedVideo = options.video; return {};
+  };`);
+  await h.run("startGame({id:'streetlight'})");
+  assert.equal(h.elements.get('loading-error').hidden, true);
+  assert.equal(h.elements.get('overlay').className, '');
+  assert.equal(h.run('window.loadedUrl === songsConfig.streetlight.url'), true);
+  assert.equal(h.run('window.loadedVideo === songsConfig.streetlight.video'), true);
+  assert.equal(h.run('window.animationCreated'), true);
+});
+
+test('a load rejection arriving after exit cannot reopen the error overlay', async () => {
+  const h = songLoadingHarness();
+  let reject;
+  h.context.loadPromise = new Promise((_, fail) => {reject = fail;});
+  h.run('player.createFromSongUrl = () => loadPromise;');
+  const pending = h.run("startGame({id:'streetlight'})");
+  await new Promise(resolve => setImmediate(resolve));
+  await h.run('exitGame()');
+  reject(new Error('late network failure'));
+  await pending;
+  assert.equal(h.elements.get('loading-error').hidden, true);
+  assert.equal(h.run('fullscreenManager.isActive()'), false);
+});
+
+test('back to selection still works when stopping the failed player rejects', async () => {
+  const h = songLoadingHarness();
+  h.run(`window.SongSelection = {show(){window.selectionShown = true;}};
+    player.requestStop = async () => {throw new Error('not ready');};`);
+  await h.run('exitGame()');
+  assert.equal(h.run('window.selectionShown'), true);
+  assert.equal(h.run('gameState.isPlaying'), false);
+});
+
 test('tracker advances once per elapsed interval, including identical/backward timestamps', () => {
   const h = harness();
   h.run(`let tracker = new KalmanTracker();

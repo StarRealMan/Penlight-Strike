@@ -242,6 +242,10 @@
             <img src="images/miku-loading-1.png" class="miku-loading miku-loading-1" alt="Miku Loading">
           </div>
           <p class="loading-text"><span class="fas">&#xf254;</span> &nbsp; now loading &nbsp; ...</p>
+          <div id="loading-error" role="alert" hidden>
+            <p id="loading-error-message"></p>
+            <button id="loading-back-btn" type="button">返回选曲 · Back</button>
+          </div>
         </div>
       </div>
       <div id="header">
@@ -411,7 +415,8 @@
 
     <!-- script to load external libraries -->
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://unpkg.com/textalive-app-api/dist/index.js"></script>
+    <!-- Pin the original API: the 0.5.3 card resolver currently receives a redirect instead of JSON. -->
+    <script src="https://unpkg.com/textalive-app-api@0.4.0/dist/index.js"></script>
 
     <script src="./js/welcome.js"></script>
     <script src="./js/song-selection.js"></script>

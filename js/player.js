@@ -2469,47 +2469,60 @@ let beatPM = 117;
 let beatDuration;
 let beatDelay;
 
+function showSongLoadError(error, sessionId) {
+  if (sessionId !== gameSessionId) return;
+  console.error('Unable to load song:', error);
+  cleanupGame();
+  fullscreenManager.setActive(false);
+  fullscreenManager.exit();
+  document.querySelector('#overlay').className = 'loading-failed';
+  document.getElementById('loading-error-message').textContent =
+    error?.message === 'Card data resolver is unavailable'
+      ? 'TextAlive 未能解析这首歌曲，请稍后重试。'
+      : '歌曲加载失败，请检查网络连接，或稍后重新选择歌曲。';
+  document.getElementById('loading-error').hidden = false;
+  document.querySelector('#pause-btn').disabled = true;
+}
+
 async function startGame(song) {
   const songConfig = songsConfig[song.id];
-  
-  if (songConfig) {
-      gameState.difficulty = getCurrentDifficulty();
-      const interactionMode = window.SongSelection ? window.SongSelection.getInteractionMode() : { isGlowStickMode: false };
-      
-      setCurrentSong(song);
-      showPlayer();
-      resetGameState();
-      fullscreenManager.setActive(true);
-      const presentationReady = fullscreenManager.enter();
-      const sessionId = gameSessionId;
-      
-    document.querySelector("#overlay").className = "";
-    document.querySelector("#pause-btn").disabled = true;
-    
-      if (interactionMode.isGlowStickMode) {
+  if (!songConfig || player?.isLoading) return;
+
+  gameState.difficulty = getCurrentDifficulty();
+  const interactionMode = window.SongSelection ? window.SongSelection.getInteractionMode() : { isGlowStickMode: false };
+  setCurrentSong(song);
+  showPlayer();
+  resetGameState();
+  fullscreenManager.setActive(true);
+  const sessionId = gameSessionId;
+  document.querySelector('#overlay').className = '';
+  document.getElementById('loading-error').hidden = true;
+  document.querySelector('#pause-btn').disabled = true;
+
+  try {
+    // Request fullscreen synchronously while the start gesture is still active.
+    await fullscreenManager.enter();
+    if (sessionId !== gameSessionId) return;
+    if (interactionMode.isGlowStickMode) {
       const initSuccess = await initGlowstickDetection();
       if (sessionId !== gameSessionId) return;
-      if (initSuccess) {
-        await enableCamera(sessionId);
-      }
-      }
-      
-      await presentationReady;
+      if (initSuccess) await enableCamera(sessionId);
       if (sessionId !== gameSessionId) return;
-      beatBase = songConfig.beatBase;
-      beatPM = songConfig.beatPM;
-      beatDuration = 60000 / beatPM / beatBase;
-      beatDelay = 36000 / beatPM;
-      
-      await player.createFromSongUrl(songConfig.url, {
-        video: songConfig.video
-      });
-
-      if (beatBase == 2) {
-        createDynamicBeatGlowAnimation(beatDuration);
-      } else {
-        createDynamicBeatGlowAnimation(beatDuration * 3 / 2);
     }
+
+    beatBase = songConfig.beatBase;
+    beatPM = songConfig.beatPM;
+    beatDuration = 60000 / beatPM / beatBase;
+    beatDelay = 36000 / beatPM;
+
+    const video = await player.createFromSongUrl(songConfig.url, {
+      video: songConfig.video
+    });
+    if (sessionId !== gameSessionId) return;
+    if (!video) throw new Error('No song data returned');
+    createDynamicBeatGlowAnimation(beatBase === 2 ? beatDuration : beatDuration * 3 / 2);
+  } catch (error) {
+    showSongLoadError(error, sessionId);
   }
 }
 
@@ -2535,6 +2548,7 @@ function initPlayer() {
     },
 
     onVideoReady(video) {
+      if (!fullscreenManager.isActive()) return;
       let beatLength = 0;
       
       beatsArray = player._data.songProvider._analysis.beats;
@@ -2681,16 +2695,18 @@ async function exitGame() {
   fullscreenManager.setActive(false);
   hidePauseModal();
   
-  if (player) {
-    if (player.isPlaying) {
-    await player.requestPause();
+  try {
+    if (player) {
+      if (player.isPlaying) await player.requestPause();
+      await player.requestStop();
     }
-    await player.requestStop();
+  } catch (error) {
+    console.warn('Unable to stop player:', error);
+  } finally {
+    gameState.isPlaying = false;
+    gameState.isPaused = false;
+    hidePlayer();
   }
-  
-  gameState.isPlaying = false;
-  gameState.isPaused = false;
-  hidePlayer();
 }
 
 async function restartGameFromPause() {
@@ -2743,6 +2759,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (gameState.isPlaying && (blocked || interrupted)) showPauseModal();
   });
   document.getElementById('pause-btn').addEventListener('click', showPauseModal);
+  document.getElementById('loading-back-btn').addEventListener('click', exitGame);
   
   const exitBtn = document.getElementById('exit-btn');
   const restartBtn = document.getElementById('restart-btn');
@@ -2782,4 +2799,4 @@ window.Player = {
   exitGame
 };
 
-window.FullscreenManager = fullscreenManager; 
+window.FullscreenManager = fullscreenManager;

@@ -124,6 +124,30 @@
   pointer-events: none;
 }
 
+#overlay.loading-failed .miku-loading-animation,
+#overlay.loading-failed .loading-text,
+#loading-error[hidden] {
+  display: none;
+}
+
+#loading-error {
+  max-width: 32rem;
+  padding: 24px;
+  text-align: center;
+  font-size: clamp(16px, 3vw, 22px);
+}
+
+#loading-back-btn {
+  margin-top: 16px;
+  padding: 12px 24px;
+  border: 1px solid #9af5e6;
+  border-radius: 12px;
+  color: #fff;
+  background: #28546c;
+  font: inherit;
+  cursor: pointer;
+}
+
 .loading-container {
   display: flex;
   flex-direction: column;
