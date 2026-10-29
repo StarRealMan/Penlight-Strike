@@ -670,26 +670,42 @@ test('mobile welcome touch enters immediately and suppresses the synthetic click
   assert.deepEqual(calls,['fullscreen','audio','landscape']);
 });
 
-test('first selection reveal recalculates spacing using the visible cover width', () => {
-  const {h}=previewHarness();let visible=false;
-  h.context.getComputedStyle=()=>({width:visible?'160px':'280px'});
-  h.context.carousel={get offsetWidth(){return visible?400:0}};
-  h.context.document.getElementById('song-selection').classList.remove=()=>{visible=true};
-  h.run(`coverCarousel=carousel;coverElements=Array.from({length:5},()=>({style:{}}));
-    updateCoverPositions();userHasInteracted=false;initAudioContext=playPreview=()=>{};`);
-  assert.match(h.run('coverElements[1].style.transform'),/-304px/);
-  h.run('enableAudioAfterInteraction()');
-  assert.match(h.run('coverElements[1].style.transform'),/-184px/);
-  assert.match(h.run('coverElements[3].style.transform'),/184px/);
+test('hidden initial covers use live width offsets without any pixel measurement', () => {
+  const {h}=previewHarness();
+  h.context.getComputedStyle=()=>{throw Error('hidden or transitional dimensions must not be sampled')};
+  h.run('coverElements=Array.from({length:5},()=>({style:{}}));updateCoverPositions();');
+  assert.match(h.run('coverElements[1].style.transform'), /translateX\(calc\(-100% - 24px\)\)/);
+  assert.match(h.run('coverElements[3].style.transform'), /translateX\(calc\(100% \+ 24px\)\)/);
+  // An early hover used to overwrite responsive positions with stale pixels too.
+  h.run('applyCoverHoverEffect(coverElements[1],1);removeCoverHoverEffect(coverElements[3],3);');
+  assert.match(h.run('coverElements[1].style.transform'), /-100% - 24px/);
+  assert.match(h.run('coverElements[3].style.transform'), /100% \+ 24px/);
 });
 
-test('carousel size changes after fullscreen refresh spacing without a cover click', () => {
-  const {h}=previewHarness();let width=220;let resize;
-  h.context.getComputedStyle=()=>({width:`${width}px`});
+test('resizing after first reveal preserves relative offsets rather than freezing a width', () => {
+  const {h}=previewHarness();let resize;
+  h.context.getComputedStyle=()=>{throw Error('must not sample animated cover widths')};
   h.context.window.ResizeObserver=class {constructor(callback){resize=callback}observe(){}};
   h.run('coverCarousel={offsetWidth:400};coverElements=Array.from({length:5},()=>({style:{}}));setupResponsiveListener();refreshCoverLayout();');
-  width=160;resize();
-  assert.match(h.run('coverElements[3].style.transform'),/184px/);
-  width=230;h.run('showSongSelection()');
-  assert.match(h.run('coverElements[3].style.transform'),/254px/);
+  const before=h.run('coverElements[3].style.transform');
+  h.context.window.innerWidth=844;h.context.window.innerHeight=390;resize();
+  assert.equal(h.run('coverElements[3].style.transform'),before);
+  h.run('showSongSelection()');
+  assert.equal(h.run('coverElements[3].style.transform'),before);
+});
+
+test('both carousel slide directions keep live width offsets during animation', () => {
+  for (const direction of ['Next','Prev']) {
+    const {h}=previewHarness();
+    h.context.getComputedStyle=()=>{throw Error('must not capture width before animation')};
+    h.run(`coverCarousel={classList:{add(){}},appendChild(){},insertBefore(){}};
+      coverElements=Array.from({length:5},()=>({style:{}}));
+      createNewCover=()=>({style:{},setAttribute(){},querySelector(){return null}});`);
+    h.run(`slideTo${direction}()`);
+    const animationTimer=[...h.timers].find(([,t])=>t.delay===50)[0];h.fire(animationTimer);
+    const positions=h.run('coverElements.map(c=>c.style.transform)');
+    const targetIndex=direction==='Next'?3:1;
+    assert.match(positions[targetIndex],/translateX\(calc\(0% \+ 0px\)\)/);
+    positions.forEach(transform=>assert.match(transform,/translateX\(calc\(/));
+  }
 });

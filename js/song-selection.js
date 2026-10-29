@@ -96,11 +96,10 @@ function setupCanvasSize() {
   }, 100);
 }
 
-// for responsive cover spacing
-function getCoverSpacing() {
-  const cover = document.getElementById('song-cover-container');
-  const width = cover ? parseFloat(getComputedStyle(cover).width) : 200;
-  return width + 24;
+// Percentages follow each cover's live CSS width, even while the page is hidden
+// or the viewport rotates. Never cache a measured pixel width in transforms.
+function getCoverOffset(offset) {
+  return `calc(${offset * 100}% ${offset < 0 ? '-' : '+'} ${Math.abs(offset) * 24}px)`;
 }
 
 // parameters for frequency map
@@ -487,31 +486,30 @@ function getSongIndexForPosition(position) {
 
 // translate of covers
 function updateCoverPositions() {
-  const spacing = getCoverSpacing();
   coverElements.forEach((cover, index) => {
-    const xPos = (index - currentCenterIndex) * spacing;
+    const xPos = getCoverOffset(index - currentCenterIndex);
     
     if (index === 0 || index === 4) {
-      cover.style.transform = `translateX(${xPos}px) scale(0.8)`;
+      cover.style.transform = `translateX(${xPos}) scale(0.8)`;
       cover.style.opacity = '0';
       cover.style.pointerEvents = 'none';
       cover.style.zIndex = '0';
     } else if (index === 1) {
-      cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+      cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
       cover.style.opacity = '0.7';
       cover.style.pointerEvents = 'auto';
       cover.style.zIndex = '1';
-      cover.style.transition = 'all 0.3s ease';
+      cover.style.transition = 'transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease';
       cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
     } else if (index === 3) {
-      cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+      cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
       cover.style.opacity = '0.7';
       cover.style.pointerEvents = 'auto';
       cover.style.zIndex = '1';
-      cover.style.transition = 'all 0.3s ease';
+      cover.style.transition = 'transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease';
       cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
     } else {
-      cover.style.transform = `translateX(${xPos}px) scale(1)`;
+      cover.style.transform = `translateX(${xPos}) scale(1)`;
       cover.style.opacity = '1';
       cover.style.pointerEvents = 'auto';
       cover.style.zIndex = '2';
@@ -564,11 +562,10 @@ function slideToNext() {
     img.src = songs[newSongIndex].cover;
   }
   
-  const spacing = getCoverSpacing();
   newCover.className = 'cover-item side-cover right-cover';
   newCover.setAttribute('data-index', '5');
   newCover.style.position = 'absolute';
-  newCover.style.transform = `translateX(${spacing * 2}px) scale(0.8)`;
+  newCover.style.transform = `translateX(${getCoverOffset(2)}) scale(0.8)`;
   newCover.style.opacity = '0';
   newCover.style.pointerEvents = 'none';
   newCover.style.zIndex = '0';
@@ -580,17 +577,17 @@ function slideToNext() {
   setTimeout(() => {
     coverElements.forEach((cover, index) => {
       const newPos = index - 1;
-      const xPos = (newPos - currentCenterIndex) * spacing;
+      const xPos = getCoverOffset(newPos - currentCenterIndex);
       if (newPos === 0 || newPos === 4 || newPos < 0) {
-        cover.style.transform = `translateX(${xPos}px) scale(0.8)`;
+        cover.style.transform = `translateX(${xPos}) scale(0.8)`;
       } else if (newPos === 1) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
       } else if (newPos === 3) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
       } else if (newPos === 2) {
-        cover.style.transform = `translateX(${xPos}px) scale(1)`;
+        cover.style.transform = `translateX(${xPos}) scale(1)`;
       }
-      cover.style.transition = 'all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)';
+      cover.style.transition = 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.6s ease';
       updateCoverStyleForPosition(cover, newPos);
     });
   }, 50);
@@ -623,11 +620,10 @@ function slideToPrev() {
     img.src = songs[newSongIndex].cover;
   }
   
-  const spacing = getCoverSpacing();
   newCover.className = 'cover-item side-cover left-cover';
   newCover.setAttribute('data-index', '-1');
   newCover.style.position = 'absolute';
-  newCover.style.transform = `translateX(-${spacing * 2}px) scale(0.8)`;
+  newCover.style.transform = `translateX(${getCoverOffset(-2)}) scale(0.8)`;
   newCover.style.opacity = '0';
   newCover.style.pointerEvents = 'none';
   newCover.style.zIndex = '0';
@@ -639,17 +635,17 @@ function slideToPrev() {
   setTimeout(() => {
     coverElements.forEach((cover, index) => {
       const newPos = index + 1;
-      const xPos = (newPos - currentCenterIndex) * spacing;
+      const xPos = getCoverOffset(newPos - currentCenterIndex);
       if (newPos === 0 || newPos === 4 || newPos > 4) {
-        cover.style.transform = `translateX(${xPos}px) scale(0.8)`;
+        cover.style.transform = `translateX(${xPos}) scale(0.8)`;
       } else if (newPos === 1) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
       } else if (newPos === 3) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
       } else if (newPos === 2) {
-        cover.style.transform = `translateX(${xPos}px) scale(1)`;
+        cover.style.transform = `translateX(${xPos}) scale(1)`;
       }
-      cover.style.transition = 'all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)';
+      cover.style.transition = 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.6s ease';
       updateCoverStyleForPosition(cover, newPos);
     });
   }, 50);
@@ -754,8 +750,8 @@ function refreshCoverLayout() {
 }
 
 function setupResponsiveListener() {
-  // Initialization happens while selection is display:none. Measure again when
-  // shown, and whenever fullscreen/rotation changes its actual layout size.
+  // Refresh the spectrum and cover states when the menu becomes visible or resizes.
+  // Cover offsets themselves resize automatically in CSS.
   if (window.ResizeObserver) {
     const observer = new window.ResizeObserver(refreshCoverLayout);
     observer.observe(coverCarousel);
@@ -811,30 +807,28 @@ function handleCoverLeave(event) {
 }
 
 function applyCoverHoverEffect(cover, index) {
-  const spacing = getCoverSpacing();
-  const xPos = (index - currentCenterIndex) * spacing;
+  const xPos = getCoverOffset(index - currentCenterIndex);
   
   if (index === 1) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.95)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.95)`;
     cover.style.opacity = '0.9';
     cover.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
   } else if (index === 3) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.95)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.95)`;
     cover.style.opacity = '0.9';
     cover.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
   }
 }
 
 function removeCoverHoverEffect(cover, index) {
-  const spacing = getCoverSpacing();
-  const xPos = (index - currentCenterIndex) * spacing;
+  const xPos = getCoverOffset(index - currentCenterIndex);
   
   if (index === 1) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
     cover.style.opacity = '0.7';
     cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
   } else if (index === 3) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
     cover.style.opacity = '0.7';
     cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
   }
