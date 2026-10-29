@@ -176,11 +176,14 @@ function setMikuState(grade) {
 
 function calculateAchievement(gameData) {
   let achievement = 'liveClear';
-  if (gameData.health <= 0 || gameData.grade === 'F') {
+  const completeCombo = gameData.totalNotes > 0 &&
+    gameData.completedNotes === gameData.totalNotes &&
+    !gameData.comboBroken && gameData.miss === 0;
+  if (gameData.health <= 0 || gameData.result === 'failed') {
     achievement = 'liveFailed';
-  } else if (gameData.miss === 0 && gameData.bad === 0 && gameData.good === 0 && gameData.great === 0) {
+  } else if (completeCombo && gameData.bad === 0 && gameData.good === 0 && gameData.great === 0) {
     achievement = 'allPerfect';
-  } else if (gameData.miss === 0) {
+  } else if (completeCombo) {
     achievement = 'fullCombo';
   }
   
@@ -241,7 +244,7 @@ function backToSongSelection() {
   hideResult();
   
   if (window.FullscreenManager) {
-    window.FullscreenManager.exit();
+    window.FullscreenManager.setActive(false);
   }
   
   if (window.SongSelection) {

@@ -88,7 +88,7 @@
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.6s ease;
   cursor: pointer;
   z-index: 1;
 }
@@ -154,7 +154,7 @@
 }
 
 .cover-carousel.animating .cover-item {
-  transition: all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.6s ease;
 }
 
 .cover-item.random-shuffle {
@@ -226,6 +226,7 @@
 }
 
 .audio-spectrum {
+  position: relative;
   width: 280px;
   height: 50px;
   background: rgba(0, 0, 0, 0.4);
@@ -251,6 +252,8 @@
   border-radius: 6px;
   background: transparent;
   display: block;
+  min-width: 0;
+  min-height: 0;
 }
 
 .audio-spectrum::before {
@@ -539,204 +542,3 @@
 }
 
 /* responsive design */
-@media (max-height: 800px) {
-  .song-selection-header {
-    padding: 1.2rem 1.5rem;
-  }
-  
-  .tutorial-button,
-  .random-button {
-    width: 45px;
-    height: 45px;
-    font-size: 1.1rem;
-  }
-  .song-title {
-    font-size: 2rem;
-  }
-  
-  .cover-item.main-cover {
-    width: 240px;
-    height: 240px;
-  }
-  
-  .cover-item.side-cover {
-    width: 216px;
-    height: 216px;
-  }
-  
-  .cover-carousel {
-    height: 280px;
-    padding: 0.4rem 0;
-  }
-  
-  .audio-spectrum {
-    width: 240px;
-    height: 40px;
-    margin-top: 8px;
-  }
-  
-  #spectrum-canvas {
-    width: 240px;
-    height: 40px;
-  }
-  
-  .song-details p {
-    font-size: 1.2rem;
-  }
-  
-  .difficulty-btn {
-    padding: 0.5rem 1.2rem;
-    font-size: 1rem;
-  }
-  
-  .interaction-mode-toggle {
-    margin-top: 1.2rem;
-  }
-  
-  .toggle-switch {
-    width: 70px;
-    height: 35px;
-  }
-  
-  .toggle-slider::before {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .toggle-switch input:checked + .toggle-slider::before {
-    transform: translateX(35px);
-  }
-}
-
-@media (max-height: 700px) {
-  .song-selection-header {
-    padding: 1rem 1.5rem;
-  }
-  
-  .tutorial-button,
-  .random-button {
-    width: 40px;
-    height: 40px;
-    font-size: 1rem;
-  }
-  .song-title {
-    font-size: 1.6rem;
-  }
-  
-  .cover-item.main-cover {
-    width: 200px;
-    height: 200px;
-  }
-  
-  .cover-item.side-cover {
-    width: 180px;
-    height: 180px;
-  }
-  
-  .cover-carousel {
-    height: 240px;
-    padding: 0.3rem 0;
-  }
-  
-  .audio-spectrum {
-    width: 200px;
-    height: 35px;
-    margin-top: 6px;
-  }
-  
-  #spectrum-canvas {
-    width: 200px;
-    height: 35px;
-  }
-  
-  .song-display {
-    gap: 1rem;
-  }
-  
-  .song-info {
-    gap: 0.8rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .song-selection-header {
-    padding: 1rem 1.5rem;
-  }
-  .cover-carousel {
-    height: 260px;
-    padding: 0.3rem 0;
-  }
-  
-  .cover-item.main-cover {
-    width: 220px;
-    height: 220px;
-  }
-  
-  .cover-item.side-cover {
-    width: 198px;
-    height: 198px;
-  }
-  
-  .song-container {
-    padding: 0 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .song-selection-header {
-    padding: 0.8rem 1rem;
-  }
-  
-  .tutorial-button,
-  .random-button {
-    width: 40px;
-    height: 40px;
-    font-size: 1rem;
-  }
-  .cover-carousel {
-    height: 220px;
-    padding: 0.2rem 0;
-  }
-  
-  .cover-item.main-cover {
-    width: 180px;
-    height: 180px;
-  }
-  
-  .cover-item.side-cover {
-    width: 162px;
-    height: 162px;
-  }
-  
-  .audio-spectrum {
-    width: 180px;
-    height: 30px;
-  }
-  
-  #spectrum-canvas {
-    width: 180px;
-    height: 30px;
-  }
-  
-  .interaction-mode-toggle {
-    margin-top: 1rem;
-  }
-  
-  .toggle-switch {
-    width: 65px;
-    height: 32px;
-  }
-  
-  .toggle-slider::before {
-    width: 26px;
-    height: 26px;
-  }
-  
-  .toggle-switch input:checked + .toggle-slider::before {
-    transform: translateX(33px);
-  }
-  
-  .toggle-icon {
-    font-size: 12px;
-  }
-} 

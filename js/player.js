@@ -25,43 +25,7 @@ function playGameAudio(audioType) {
   }
 }
 
-const fullscreenManager = {
-  async enter() {
-    if (this.isFullscreen()) return;
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        await elem.requestFullscreen();
-      } else if (elem.webkitRequestFullscreen) {
-        await elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        await elem.msRequestFullscreen();
-      } else if (elem.mozRequestFullScreen) {
-        await elem.mozRequestFullScreen();
-    }
-  },
-
-  async exit() {
-    if (!this.isFullscreen()) return;
-      if (document.exitFullscreen) {
-        await document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        await document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
-        await document.msExitFullscreen();
-      } else if (document.mozCancelFullScreen) {
-        await document.mozCancelFullScreen();
-    }
-  },
-
-  isFullscreen() {
-    return !!(
-      document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.msFullscreenElement ||
-      document.mozFullScreenElement
-    );
-  }
-};
+const fullscreenManager = window.GameDisplay;
 
 window.difficultyConfig = {
   easy: {
@@ -128,6 +92,8 @@ let gameState = {
   score: 0,
   combo: 0,
   maxCombo: 0,
+  completedNotes: 0,
+  comboBroken: false,
   notes: [],
   pseudoNotes: [],
   isPlaying: false,
@@ -197,6 +163,10 @@ let cameraVideo = null;
 let glowstickWorker = null;
 let isGlowstickDetectionActive = false;
 let isWorkerProcessing = false;
+let glowstickFrameId = null;
+let glowstickRetryTimer = null;
+let glowstickRequestId = 0;
+let activeGlowstickRequest = null;
 let lastGlowstickTrailTime = 0;
 let glowstickModeActive = false;
 let lastGlowstickUpdateTime = 0;
@@ -249,15 +219,17 @@ async function initGlowstickDetection() {
 
   try {
     glowstickWorker = new Worker('js/detect.js');
+    const worker = glowstickWorker;
     glowstickKalmanFilter = new window.KalmanTracker();
     
     let modelLoaded = 0;
     let modelLoadError = null;
     glowstickWorker.onmessage = function(e) {
-      const { type, data } = e.data;
+      if (glowstickWorker !== worker) return;
+      const { type, data, requestId } = e.data;
       switch (type) {
         case 'DETECTION_RESULT':
-          handleGlowstickDetectionResult(data);
+          handleGlowstickDetectionResult(data, requestId);
           break;
         case 'MODEL_LOADED':
           modelLoaded = data.success;
@@ -303,67 +275,82 @@ async function startGlowstickDetection() {
   isGlowstickDetectionActive = true;
   
   createDebugInterface();
-  requestAnimationFrame(processGlowstickFrame);
+  scheduleGlowstickFrame();
 }
 
-function processGlowstickFrame() {
-  if (!isGlowstickDetectionActive || !cameraVideo || !glowstickWorker) {
-    setTimeout(() => {
-      requestAnimationFrame(processGlowstickFrame);
-    }, 100);
-    return;
+function scheduleGlowstickFrame(delay = 0) {
+  if (!isGlowstickDetectionActive || !cameraVideo || !glowstickWorker ||
+      glowstickFrameId !== null || glowstickRetryTimer !== null) return;
+  if (delay > 0) {
+    glowstickRetryTimer = setTimeout(() => {
+      glowstickRetryTimer = null;
+      scheduleGlowstickFrame();
+    }, delay);
+  } else {
+    glowstickFrameId = requestAnimationFrame(() => {
+      glowstickFrameId = null;
+      processGlowstickFrame();
+    });
   }
-  
+}
+
+async function processGlowstickFrame() {
+  if (!isGlowstickDetectionActive || !cameraVideo || !glowstickWorker) return;
   const videoWidth = cameraVideo.videoWidth;
   const videoHeight = cameraVideo.videoHeight;
-  
   if (videoWidth === 0 || videoHeight === 0) {
-    setTimeout(() => {
-      requestAnimationFrame(processGlowstickFrame);
-    }, 100);
+    scheduleGlowstickFrame(100);
     return;
   }
-  if (isWorkerProcessing) {
-    return;
-  }
+  if (isWorkerProcessing) return;
 
+  const worker = glowstickWorker;
+  const requestId = ++glowstickRequestId;
+  activeGlowstickRequest = requestId;
   isWorkerProcessing = true;
-  const startTime = performance.now();
-  
-  createImageBitmap(cameraVideo)
-    .then(imageBitmap => {
-      const messageData = {
-        imageBitmap: imageBitmap,
-        width: videoWidth,
-        height: videoHeight,
-        returnDebugData: debugMode,
-        startTime: startTime
-      };
-      
-      glowstickWorker.postMessage({
-        type: 'DETECT',
-        data: messageData
-      }, [imageBitmap]);
-      
-      // if the worker is not responding in 5s, restart the detection loop
-      const timeoutId = setTimeout(() => {
-        if (isWorkerProcessing) {
-          isWorkerProcessing = false;
-          requestAnimationFrame(processGlowstickFrame);
-        }
-      }, 5000);
-      glowstickWorker._currentTimeoutId = timeoutId;
-    });
+  const isCurrentRequest = () => isGlowstickDetectionActive &&
+    glowstickWorker === worker && activeGlowstickRequest === requestId;
+  const releaseRequest = () => {
+    clearTimeout(worker._currentTimeoutId);
+    worker._currentTimeoutId = null;
+    activeGlowstickRequest = null;
+    isWorkerProcessing = false;
+  };
+
+  // Cover both frame capture and inference, including a stalled capture promise.
+  worker._currentTimeoutId = setTimeout(() => {
+    if (!isCurrentRequest()) return;
+    releaseRequest();
+    scheduleGlowstickFrame(100);
+  }, 5000);
+
+  let imageBitmap = null;
+  try {
+    imageBitmap = await createImageBitmap(cameraVideo);
+    if (!isCurrentRequest()) return;
+    worker.postMessage({
+      type: 'DETECT',
+      requestId,
+      data: { imageBitmap, width: videoWidth, height: videoHeight, returnDebugData: debugMode }
+    }, [imageBitmap]);
+    imageBitmap = null; // Ownership has transferred to the worker.
+  } catch (error) {
+    if (isCurrentRequest()) {
+      releaseRequest();
+      scheduleGlowstickFrame(100);
+    }
+  } finally {
+    if (imageBitmap) imageBitmap.close();
+  }
 }
 
-function handleGlowstickDetectionResult(data) {
+function handleGlowstickDetectionResult(data, requestId) {
+  if (!isGlowstickDetectionActive || requestId !== activeGlowstickRequest) return;
+  activeGlowstickRequest = null;
   isWorkerProcessing = false;
-  
-  if (glowstickWorker && glowstickWorker._currentTimeoutId) {
-    clearTimeout(glowstickWorker._currentTimeoutId);
-    glowstickWorker._currentTimeoutId = null;
-  }
-  
+  clearTimeout(glowstickWorker._currentTimeoutId);
+  glowstickWorker._currentTimeoutId = null;
+
   const { position, debugData } = data;
   
   if (debugData) {
@@ -385,7 +372,7 @@ function handleGlowstickDetectionResult(data) {
     }
   }
   
-  requestAnimationFrame(processGlowstickFrame);
+  scheduleGlowstickFrame();
 }
 
 function convertCameraToScreenCoords(cameraPosition) {
@@ -441,7 +428,8 @@ function processGlowstickInteraction(now) {
     const currentTime = performance.now();
     const filteredPosition = glowstickKalmanFilter.getCurrentPosition(currentTime);
     
-    if (filteredPosition && filteredPosition.confidence > 0.3) {
+    if (filteredPosition && filteredPosition.confidence > 0.3 &&
+        currentTime - glowstickKalmanFilter.lastMeasurementTime <= 250) {
       position = {
         x: filteredPosition.x,
         y: filteredPosition.y,
@@ -514,6 +502,7 @@ function stopMouseEvents() {
   
   if (mouseEventHandler && playerPage) {
     playerPage.removeEventListener('pointermove', mouseEventHandler);
+    playerPage.removeEventListener('pointerdown', mouseEventHandler);
     mouseEventHandler = null;
   }
   
@@ -720,6 +709,11 @@ function drawPredictionPoint(context, position, canvasWidth = 192, canvasHeight 
 }
 
 function cleanupGlowstickDetection() {
+  cancelAnimationFrame(glowstickFrameId);
+  clearTimeout(glowstickRetryTimer);
+  glowstickFrameId = null;
+  glowstickRetryTimer = null;
+  activeGlowstickRequest = null;
   isGlowstickDetectionActive = false;
   glowstickModeActive = false;
   stopGlowstickLoop();
@@ -756,7 +750,7 @@ function cleanupGlowstickDetection() {
   isWorkerProcessing = false;
 }
 
-async function enableCamera() {
+async function enableCamera(sessionId = gameSessionId) {
   if (cameraStream) {
     return;
   }
@@ -768,6 +762,7 @@ async function enableCamera() {
     const aspectRatio = settings.width / settings.height;
 
     track.stop();
+    if (sessionId !== gameSessionId) return;
 
     const idealWidth = 640;
     const idealHeight = Math.round(idealWidth / aspectRatio);
@@ -781,6 +776,10 @@ async function enableCamera() {
         audio: false
       });
 
+      if (sessionId !== gameSessionId) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       cameraStream = stream;
 
       cameraVideo = document.getElementById('camera-video');
@@ -924,10 +923,18 @@ function initFPSDisplay() {
   
   fpsData.frameCount = 0;
   fpsData.fps = 60;
-  fpsData.lastFpsUpdate = performance.now();
+  fpsData.lastFpsUpdate = Date.now();
 }
 
 // precalculate scores to make sure the max score is 1000000
+function getNoteHitCount(duration, config) {
+  if (duration <= config.multiNote.threshold) return 1;
+  return Math.min(
+    2 + Math.floor((duration - config.multiNote.threshold) / config.multiNote.hitInterval),
+    config.multiNote.maxHitCount
+  );
+}
+
 function analyzeSongAndCalculateScores(video, totalBeats) {
   if (!video) return;
   
@@ -952,7 +959,7 @@ function analyzeSongAndCalculateScores(video, totalBeats) {
         const duration = unit.endTime - unit.startTime;
         
         if (duration > currentConfig.multiNote.threshold) {
-          const hitCount = 2 + Math.floor((duration - currentConfig.multiNote.threshold) / currentConfig.multiNote.hitInterval);
+          const hitCount = getNoteHitCount(duration, currentConfig);
           totalHits += hitCount;
           
           const multiHitScoreWeight = (hitCount - 1) * 0.5 + 1;
@@ -1239,7 +1246,7 @@ class Note {
     this.vx = Math.max(0, this.vx * (1 - dampening));
 
     this.y += this.vy * dt;
-    this.vy += (200 - this.vy * dampening) * dt;
+    this.vy += (200 * Math.min(1, window.innerHeight / 720) - this.vy * dampening) * dt;
 
     const newX = this.x | 0;
     const newY = this.y | 0;
@@ -1313,14 +1320,13 @@ function showPlayer() {
   document.getElementById('tutorial-page').classList.add('hidden');
   document.getElementById('player-page').classList.remove('hidden');
   
-  fullscreenManager.enter();
   initGameUI();
 }
 
 function hidePlayer() {
   document.getElementById('game-ui').classList.add('hidden');
   document.getElementById('player-page').classList.add('hidden');
-  fullscreenManager.exit();
+  fullscreenManager.setActive(false);
   
   if (window.SongSelection) {
     window.SongSelection.show();
@@ -1364,15 +1370,18 @@ function setupMouseEvents() {
   
   if (mouseEventHandler) {
     playerPage.removeEventListener('pointermove', mouseEventHandler);
+    playerPage.removeEventListener('pointerdown', mouseEventHandler);
   }
   
   mouseEventHandler = (e) => {
+    if (e.target.closest('button, .pause-modal')) return;
     currentMouseX = e.clientX;
     currentMouseY = e.clientY;
     hasRecentMouseMovement = true;
   };
   
   playerPage.addEventListener('pointermove', mouseEventHandler);
+  playerPage.addEventListener('pointerdown', mouseEventHandler);
 }
 
 
@@ -1430,10 +1439,12 @@ function handleSlash(x, y) {
   
   let hitNote = null;
   let hitDistance = Infinity;
-  let OutDistance = Infinity;
+  let nearestEdgeDistance = Infinity;
+  let hasInsideHit = false;
   
   for (const note of gameState.notes) {
     if (note.isHit) continue;
+    let hitMargin;
     
     if (note.type === 'pseudo') {
       if (glowstickModeActive) {
@@ -1471,7 +1482,8 @@ function handleSlash(x, y) {
       const noteCenterY = noteRect.top + 12;
       const distance = Math.sqrt((x - noteCenterX) ** 2 + (y - noteCenterY) ** 2);
     
-      if (distance < hitDistance) {
+      if (!hasInsideHit || distance < hitDistance) {
+        hasInsideHit = true;
         hitNote = note;
         hitDistance = distance;
       }
@@ -1481,9 +1493,9 @@ function handleSlash(x, y) {
       const edgeDistance = getDistanceToRect(x, y, noteRect);
       
       if (edgeDistance < hitMargin) {
-        if (hitDistance == Infinity && edgeDistance < OutDistance) {
+        if (!hasInsideHit && edgeDistance < nearestEdgeDistance) {
           hitNote = note;
-          OutDistance = edgeDistance;
+          nearestEdgeDistance = edgeDistance;
           const noteCenterX = noteRect.left + (noteRect.right - noteRect.left) / 2;
           const noteCenterY = noteRect.top + 12;
           hitDistance = Math.sqrt((x - noteCenterX) ** 2 + (y - noteCenterY) ** 2);
@@ -1527,6 +1539,7 @@ function handleNoteHit(note, result, distance) {
   if (result === 'pseudo') {
     playGameAudio('explosion');
     gameState.combo = 0;
+    gameState.comboBroken = true;
     updateComboDisplay();
     checkGameOver();
     
@@ -1544,6 +1557,7 @@ function handleNoteHit(note, result, distance) {
     const multiHitScore = scoreConfig[hitQuality] * 0.5;
     gameState.score += multiHitScore;
     gameState.combo++;
+    gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo);
     
     createEffect('hit', note.x + note.width / 2, note.y + 12, hitQuality);
     showHitResult(hitQuality);
@@ -1558,6 +1572,7 @@ function handleNoteHit(note, result, distance) {
   const hitQuality = getHitQuality(distance, note.width);
   gameState.score += scoreConfig[hitQuality];
   gameState.combo++;
+  gameState.completedNotes++;
   gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo);
   
   createEffect('hit', note.x + note.width / 2, note.y + 12, hitQuality);
@@ -1901,6 +1916,27 @@ function showHitResult(quality) {
   }, 1500);
 }
 
+const beatTimers = new Set();
+let manualPauseRequested = false;
+
+function scheduleBeatCallback(callback, delay) {
+  const sessionId = gameSessionId;
+  const id = setTimeout(() => {
+    beatTimers.delete(id);
+    if (sessionId === gameSessionId && gameState.isPlaying && !gameState.isPaused) callback();
+  }, delay);
+  beatTimers.add(id);
+}
+
+function clearBeatCallbacks() {
+  for (const id of beatTimers) clearTimeout(id);
+  beatTimers.clear();
+  updateCursorState(false);
+  lastBeatState = 'low';
+  const character = document.getElementById('miku-character');
+  if (character) character.style.transform = '';
+}
+
 let activeBeat = false;
 function updateCursorState(isHigh) {
   const playerPage = document.getElementById('player-page');
@@ -1932,7 +1968,7 @@ function updateMikuState(isHigh, duration) {
 
   mikuImg.style.transition = `transform ${duration / 2}ms ease-in-out`;
   mikuImg.style.transform = 'rotateY(90deg)';
-  setTimeout(() => {
+  scheduleBeatCallback(() => {
     gameState.mikuState = newState;
     mikuImg.src = `images/miku-${newState}.png`;
     mikuImg.style.transition = null;
@@ -1966,23 +2002,19 @@ function getRandomPianoKey() {
 }
 
 function getPianoRollPosition() {
-  const playerPage = document.getElementById('player-page');
-  const pianoRoll = playerPage.querySelector('.piano-roll');
-  if (!pianoRoll) return { x: 20, y: window.innerHeight * 0.1, height: 500 };
-  
-  return {
-    x: 20,
-    y: window.innerHeight * 0.1,
-    height: 500
-  };
+  const pianoRoll = document.querySelector('.piano-roll');
+  if (!pianoRoll) return { x: 20, y: 70, width: 127, height: 500 };
+  const rect = pianoRoll.getBoundingClientRect();
+  return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
 }
 
 // higher y velocity to make notes not dropping down too fast
 function calculateNoteVelocity(y) {
   const vyMin = -100 - (y / 500) * 200;
   const vyMax = -50 - (y / 500) * 100;
-  const vy = vyMin + Math.random() * (vyMax - vyMin);
-  const vxMin = 120;
+  const heightScale = Math.min(1, window.innerHeight / 720);
+  const vy = (vyMin + Math.random() * (vyMax - vyMin)) * heightScale;
+  const vxMin = Math.min(120, window.innerWidth * 0.15);
   const vxMax = Math.max(vxMin + 100, window.innerWidth * 0.4);
   const vx = vxMin + Math.random() * (vxMax - vxMin);
   
@@ -1995,7 +2027,7 @@ function spawnNote(char, time, duration = 500) {
   const keyInfo = getPianoKeyInfo(selectedKey);
   const pianoRollPos = getPianoRollPosition();
 
-  const x = pianoRollPos.x + keyInfo.width + 10
+  const x = pianoRollPos.x + keyInfo.width * (pianoRollPos.width / 127) + 10
   const y = pianoRollPos.y + (keyInfo.centerY / 500) * pianoRollPos.height;
 
   let type = 'single';
@@ -2003,8 +2035,7 @@ function spawnNote(char, time, duration = 500) {
   
   if (duration > currentConfig.multiNote.threshold) {
     type = 'multi';
-    hitCount = 2 + Math.floor((duration - currentConfig.multiNote.threshold) / currentConfig.multiNote.hitInterval);
-    hitCount = Math.min(hitCount, currentConfig.multiNote.maxHitCount);
+    hitCount = getNoteHitCount(duration, currentConfig);
   }
   
   const note = new Note(type, char, x, y, time, duration, hitCount);
@@ -2026,9 +2057,9 @@ function triggerPianoKeyEffect(keyInfo) {
   const keyEffect = document.createElement('div');
   keyEffect.className = `piano-key-effect ${keyInfo.isBlackKey ? 'black-key' : 'white-key'}`;
   
-  keyEffect.style.top = keyInfo.y - keyInfo.height / 2 + 'px';
-  keyEffect.style.width = keyInfo.width + 'px';
-  keyEffect.style.height = keyInfo.height + 'px';
+  keyEffect.style.top = ((keyInfo.y - keyInfo.height / 2) / 500) * 100 + '%';
+  keyEffect.style.width = (keyInfo.width / 127) * 100 + '%';
+  keyEffect.style.height = (keyInfo.height / 500) * 100 + '%';
   
   keyEffect.classList.add('active');
   setTimeout(() => {
@@ -2054,7 +2085,7 @@ function spawnPseudoNote() {
   const keyInfo = getPianoKeyInfo(selectedKey);
   const pianoRollPos = getPianoRollPosition();
   
-  const x = pianoRollPos.x + keyInfo.width + 10
+  const x = pianoRollPos.x + keyInfo.width * (pianoRollPos.width / 127) + 10
   const y = pianoRollPos.y + (keyInfo.centerY / 500) * pianoRollPos.height;
   
   const durationRange = currentConfig.pseudoNote.durationMax - currentConfig.pseudoNote.durationMin;
@@ -2107,14 +2138,17 @@ function stopPseudoNoteGeneration() {
   }
 }
 
+let gameFrameId = null;
+
 function gameLoop() {
+  gameFrameId = null;
   if (!gameState.isPlaying) {
     return;
   }
   
   if (gameState.isPaused) {
     gameState.lastUpdateTime = null;
-    requestAnimationFrame(gameLoop);
+    gameFrameId = requestAnimationFrame(gameLoop);
     return;
   }
   
@@ -2137,6 +2171,7 @@ function gameLoop() {
       if (!note.isHit && note.type !== 'pseudo') {
         playGameAudio('miss');
         gameState.miss++;
+        gameState.comboBroken = true;
         gameState.combo = 0;
         showHitResult('miss');
         updateComboDisplay();
@@ -2154,10 +2189,41 @@ function gameLoop() {
   
   DOMBatcher.flushUpdates();
   
-  requestAnimationFrame(gameLoop);
+  gameFrameId = requestAnimationFrame(gameLoop);
 }
 
 let isGameOverStarted = false;
+let gameSessionId = 0;
+let gameEndTimer = null;
+let volumeFadeTimer = null;
+
+function cancelGameEnd() {
+  clearTimeout(gameEndTimer);
+  clearInterval(volumeFadeTimer);
+  gameEndTimer = null;
+  volumeFadeTimer = null;
+}
+
+function scheduleGameEnd(result, delay = 2000) {
+  if (!gameState.isPlaying || gameEndTimer !== null) return;
+  const sessionId = gameSessionId;
+  gameEndTimer = setTimeout(() => {
+    if (sessionId !== gameSessionId || !gameState.isPlaying) return;
+    gameEndTimer = null;
+    endGame(result);
+  }, delay);
+}
+
+function invalidateGameSession() {
+  gameSessionId++;
+  clearBeatCallbacks();
+  manualPauseRequested = false;
+  gameState.isPlaying = false;
+  gameState.isPaused = false;
+  cancelGameEnd();
+  cancelAnimationFrame(gameFrameId);
+  gameFrameId = null;
+}
 
 function checkGameOver() {
   if (gameState.health <= 0 && !isGameOverStarted) {
@@ -2169,7 +2235,7 @@ function checkGameOver() {
     const fadeInterval = fadeDuration / fadeSteps;
     
     let currentStep = 0;
-    const volumeFadeTimer = setInterval(() => {
+    volumeFadeTimer = setInterval(() => {
       currentStep++;
       const progress = currentStep / fadeSteps;
       const newVolume = initialVolume * (1 - progress);
@@ -2180,6 +2246,7 @@ function checkGameOver() {
       
       if (currentStep >= fadeSteps) {
         clearInterval(volumeFadeTimer);
+        volumeFadeTimer = null;
       }
           }, fadeInterval);
       
@@ -2188,13 +2255,17 @@ function checkGameOver() {
         gameOverOverlay.classList.add('active');
       }
       
-      setTimeout(() => {
-        endGame('failed');
-      }, fadeDuration);
+      scheduleGameEnd('failed', fadeDuration);
   }
 }
 
 async function endGame(result) {
+  if (!gameState.isPlaying) return;
+  const sessionId = gameSessionId;
+  clearBeatCallbacks();
+  cancelGameEnd();
+  cancelAnimationFrame(gameFrameId);
+  gameFrameId = null;
   gameState.isPlaying = false;
   gameState.isPaused = false;
   
@@ -2202,10 +2273,13 @@ async function endGame(result) {
   
   if (player && player.isPlaying) {
     await player.requestPause();
+    if (sessionId !== gameSessionId) return;
     await player.requestStop();
   }
   
+  if (sessionId !== gameSessionId) return;
   disableCamera();
+  fullscreenManager.setActive(false);
   
   let finalGrade = result === 'failed' ? 'F' : calculateGrade();
   gameState.grade = finalGrade;
@@ -2218,6 +2292,9 @@ async function endGame(result) {
     miss: gameState.miss,
     score: Math.floor(gameState.score),
     maxCombo: gameState.maxCombo,
+    completedNotes: gameState.completedNotes,
+    totalNotes: songAnalysis.totalNotes,
+    comboBroken: gameState.comboBroken,
     health: gameState.health,
     grade: finalGrade,
     currentSong: gameState.currentSong,
@@ -2230,6 +2307,7 @@ async function endGame(result) {
 }
 
 function cleanupGame() {
+  invalidateGameSession();
   isGameOverStarted = false;
   stopPseudoNoteGeneration();
   
@@ -2299,6 +2377,11 @@ function resetGameState() {
   gameState.score = 0;
   gameState.combo = 0;
   gameState.maxCombo = 0;
+  gameState.completedNotes = 0;
+  gameState.comboBroken = false;
+  lastBeatState = 'low';
+  lastPositionX = 0;
+  lastPositionY = 0;
   gameState.grade = 'F';
   gameState.beatState = 'low';
   gameState.mikuState = 'low';
@@ -2386,41 +2469,59 @@ let beatPM = 117;
 let beatDuration;
 let beatDelay;
 
+function showSongLoadError(error, sessionId) {
+  if (sessionId !== gameSessionId) return;
+  console.error('Unable to load song:', error);
+  cleanupGame();
+  fullscreenManager.setActive(false);
+  document.querySelector('#overlay').className = 'loading-failed';
+  document.getElementById('loading-error-message').textContent =
+    error?.message === 'Card data resolver is unavailable'
+      ? 'TextAlive 未能解析这首歌曲，请稍后重试。'
+      : '歌曲加载失败，请检查网络连接，或稍后重新选择歌曲。';
+  document.getElementById('loading-error').hidden = false;
+  document.querySelector('#pause-btn').disabled = true;
+}
+
 async function startGame(song) {
   const songConfig = songsConfig[song.id];
-  
-  if (songConfig) {
-      gameState.difficulty = getCurrentDifficulty();
-      const interactionMode = window.SongSelection ? window.SongSelection.getInteractionMode() : { isGlowStickMode: false };
-      
-      setCurrentSong(song);
-      showPlayer();
-      resetGameState();
-      
-    document.querySelector("#overlay").className = "";
-    document.querySelector("#pause-btn").disabled = true;
-    
-      if (interactionMode.isGlowStickMode) {
-      const initSuccess = await initGlowstickDetection();
-      if (initSuccess) {
-        await enableCamera();
-      }
-      }
-      
-      beatBase = songConfig.beatBase;
-      beatPM = songConfig.beatPM;
-      beatDuration = 60000 / beatPM / beatBase;
-      beatDelay = 36000 / beatPM;
-      
-      await player.createFromSongUrl(songConfig.url, {
-        video: songConfig.video
-      });
+  if (!songConfig || player?.isLoading) return;
 
-      if (beatBase == 2) {
-        createDynamicBeatGlowAnimation(beatDuration);
-      } else {
-        createDynamicBeatGlowAnimation(beatDuration * 3 / 2);
+  gameState.difficulty = getCurrentDifficulty();
+  const interactionMode = window.SongSelection ? window.SongSelection.getInteractionMode() : { isGlowStickMode: false };
+  setCurrentSong(song);
+  showPlayer();
+  resetGameState();
+  fullscreenManager.setActive(true);
+  const sessionId = gameSessionId;
+  document.querySelector('#overlay').className = '';
+  document.getElementById('loading-error').hidden = true;
+  document.querySelector('#pause-btn').disabled = true;
+
+  try {
+    // Request fullscreen synchronously while the start gesture is still active.
+    fullscreenManager.enter();
+    if (sessionId !== gameSessionId) return;
+    if (interactionMode.isGlowStickMode) {
+      const initSuccess = await initGlowstickDetection();
+      if (sessionId !== gameSessionId) return;
+      if (initSuccess) await enableCamera(sessionId);
+      if (sessionId !== gameSessionId) return;
     }
+
+    beatBase = songConfig.beatBase;
+    beatPM = songConfig.beatPM;
+    beatDuration = 60000 / beatPM / beatBase;
+    beatDelay = 36000 / beatPM;
+
+    const video = await player.createFromSongUrl(songConfig.url, {
+      video: songConfig.video
+    });
+    if (sessionId !== gameSessionId) return;
+    if (!video) throw new Error('No song data returned');
+    createDynamicBeatGlowAnimation(beatBase === 2 ? beatDuration : beatDuration * 3 / 2);
+  } catch (error) {
+    showSongLoadError(error, sessionId);
   }
 }
 
@@ -2446,14 +2547,16 @@ function initPlayer() {
     },
 
     onVideoReady(video) {
+      if (!fullscreenManager.isActive()) return;
       let beatLength = 0;
-      
+
       beatsArray = player._data.songProvider._analysis.beats;
       beatLength = beatsArray.length;
       analyzeSongAndCalculateScores(video, beatLength);
     },
 
     onTimerReady() {
+      if (!fullscreenManager.isActive()) return;
       document.querySelector("#overlay").className = "disabled";
       document.querySelector("#pause-btn").disabled = false;
       gameState.isPlaying = true;
@@ -2462,30 +2565,30 @@ function initPlayer() {
       
       startPseudoNoteGeneration();
       setupInteractionEvents();
-      if (player && !player.isPlaying) {
-        player.requestPlay();
-      }
+      if (player && !player.isPlaying) player.requestPlay();
     },
 
     // get beat and lyrics information from TextAlive Player
     onTimeUpdate(position) {
-      if (!gameState.isPlaying) return;
+      if (!gameState.isPlaying || gameState.isPaused) return;
       
       const video = player.video;
       if (!video) return;
 
       const futureTime = position + (beatDuration / 2);
-      const futureBeats = player.findBeatChange(gameState.lastTime, futureTime);
-      if (futureBeats.entered.length > 0) {
+      const previousFutureTime = gameState.lastTime < 0 ? -1 : gameState.lastTime + beatDuration / 2;
+      const futureBeats = player.findBeatChange(previousFutureTime, futureTime);
+      if (futureBeats.entered.length > 0 &&
+          futureBeats.entered[futureBeats.entered.length - 1].index !== gameState.currentBeatIndex) {
         const latestBeat = futureBeats.entered[futureBeats.entered.length - 1];
         gameState.currentBeatIndex = latestBeat.index;
         
         updateCursorState(true);
-        setTimeout(() => {
+        scheduleBeatCallback(() => {
           updateCursorState(false);
         }, beatDuration);
         const isEvenBeat = (latestBeat.index % beatBase) === 0;
-        setTimeout(() => {
+        scheduleBeatCallback(() => {
           updateMikuState(isEvenBeat, beatDuration);
         }, beatDelay);
         
@@ -2517,27 +2620,27 @@ function initPlayer() {
     },
 
     onPlay() {
+      manualPauseRequested = false;
       gameState.isPaused = false;
       gameState.lastUpdateTime = null;
     },
 
     onPause() {
       gameState.isPaused = true;
+      clearBeatCallbacks();
       
       if (player.video && player.timer) {
         const position = player.timer.position;
         const duration = player.video.duration;
         const isNearEnd = duration - position < 1000;
         
-        if (isNearEnd && gameState.isPlaying && gameState.health > 0) {
+        if (isNearEnd && !manualPauseRequested && gameState.isPlaying && gameState.health > 0) {
           const gameOverOverlay = document.getElementById('game-over-overlay');
           if (gameOverOverlay) {
             gameOverOverlay.classList.add('active');
           }
           
-          setTimeout(() => {
-            endGame('completed');
-          }, 2000);
+          scheduleGameEnd('completed');
         }
       }
     },
@@ -2550,9 +2653,7 @@ function initPlayer() {
             gameOverOverlay.classList.add('active');
           }
           
-          setTimeout(() => {
-            endGame('completed');
-          }, 2000);
+          scheduleGameEnd('completed');
         }
       }
     }
@@ -2564,6 +2665,9 @@ function setCurrentSong(song) {
 }
 
 function showPauseModal() {
+  manualPauseRequested = true;
+  clearBeatCallbacks();
+  gameState.isPaused = true;
   const modal = document.getElementById('pause-modal');
   if (modal) {
     modal.classList.remove('hidden');
@@ -2578,21 +2682,26 @@ function hidePauseModal() {
 }
 
 async function exitGame() {
+  invalidateGameSession();
+  fullscreenManager.setActive(false);
   hidePauseModal();
   
-  if (player) {
-    if (player.isPlaying) {
-    await player.requestPause();
+  try {
+    if (player) {
+      if (player.isPlaying) await player.requestPause();
+      await player.requestStop();
     }
-    await player.requestStop();
+  } catch (error) {
+    console.warn('Unable to stop player:', error);
+  } finally {
+    gameState.isPlaying = false;
+    gameState.isPaused = false;
+    hidePlayer();
   }
-  
-  gameState.isPlaying = false;
-  gameState.isPaused = false;
-  hidePlayer();
 }
 
 async function restartGameFromPause() {
+  invalidateGameSession();
   hidePauseModal();
   
   if (gameState.currentSong) {
@@ -2620,7 +2729,27 @@ function continuePause() {
 document.addEventListener('DOMContentLoaded', () => {
   preloadAudio();
   initPlayer();
+  window.addEventListener('game-display-change', ({ detail }) => {
+    const { width, height, previousWidth, previousHeight, interrupted } = detail;
+    if (previousWidth > 0 && previousHeight > 0 &&
+        (width !== previousWidth || height !== previousHeight)) {
+      for (const note of gameState.notes) {
+        note.x *= width / previousWidth;
+        note.y *= height / previousHeight;
+        note.vx *= width / previousWidth;
+        note.vy *= height / previousHeight;
+        note.lastX = note.x | 0;
+        note.lastY = note.y | 0;
+        note.element.style.transform = `translate3d(${note.x}px, ${note.y}px, 0)`;
+      }
+      domUpdatesQueue = [];
+      hasRecentMouseMovement = false;
+      if (glowstickKalmanFilter) glowstickKalmanFilter = new window.KalmanTracker();
+    }
+    if (gameState.isPlaying && interrupted) showPauseModal();
+  });
   document.getElementById('pause-btn').addEventListener('click', showPauseModal);
+  document.getElementById('loading-back-btn').addEventListener('click', exitGame);
   
   const exitBtn = document.getElementById('exit-btn');
   const restartBtn = document.getElementById('restart-btn');
@@ -2656,7 +2785,8 @@ document.addEventListener('DOMContentLoaded', () => {
 window.Player = {
   showPlayer,
   hidePlayer,
-  startGame
+  startGame,
+  exitGame
 };
 
-window.FullscreenManager = fullscreenManager; 
+window.FullscreenManager = fullscreenManager;

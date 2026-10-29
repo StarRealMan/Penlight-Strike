@@ -20,6 +20,7 @@ class KalmanTracker {
     
     this.initialized = false;
     this.lastMeasurementTime = 0;
+    this.lastPredictionTime = 0;
     this.confidence = 0;
   }
   
@@ -27,6 +28,7 @@ class KalmanTracker {
   initialize(measurement) {
     this.state = [measurement.x, measurement.y, 0, 0];
     this.lastMeasurementTime = measurement.timestamp;
+    this.lastPredictionTime = measurement.timestamp;
     this.confidence = measurement.confidence;
     this.initialized = true;
   }
@@ -35,7 +37,9 @@ class KalmanTracker {
   predict(currentTime) {
     if (!this.initialized) return;
     
-    const dt = Math.min((currentTime - this.lastMeasurementTime) / 1000, 0.1);
+    if (currentTime <= this.lastPredictionTime) return;
+    const dt = Math.min((currentTime - this.lastPredictionTime) / 1000, 0.1);
+    this.lastPredictionTime = currentTime;
     
     const F = [
       [1, 0, dt, 0 ],
@@ -61,6 +65,9 @@ class KalmanTracker {
       return;
     }
     
+    if (measurement.timestamp < this.lastPredictionTime) return;
+    this.predict(measurement.timestamp);
+
     const H = [
       [1, 0, 0, 0],
       [0, 1, 0, 0]

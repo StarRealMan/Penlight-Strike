@@ -256,23 +256,7 @@
 }
 
 /* responsive design */
-@media (max-width: 768px) {
-  .game-title {
-    font-size: 3rem;
-  }
-  .subtitle {
-    font-size: 1.2rem;
-  }
-  .title-decoration {
-    gap: 1.5rem;
-  }
-  .title-decoration i {
-    font-size: 1.5rem;
-  }
-  .main-center-content {
-    min-height: 200px;
-  }
-}
+
 
 .credit-section {
   position: absolute;
@@ -325,43 +309,3 @@
   font-weight: 600;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
 }
-
-@media (max-height: 600px) {
-  .game-title {
-    font-size: 2.5rem;
-  }
-  .logo-section {
-    margin-bottom: 2rem;
-  }
-  .main-center-content {
-    min-height: 120px;
-  }
-  .welcome-message {
-    min-height: 60px;
-  }
-  .credit-section {
-    bottom: 10px;
-    right: 10px;
-  }
-  .credit-content {
-    padding: 10px 15px;
-    max-width: 350px;
-  }
-  .credit-content p {
-    font-size: 14px;
-  }
-  .credit-content table {
-    border-spacing: 12px 4px; /* 在小屏幕上稍微减小间距 */
-  }
-  .credit-content td {
-    font-size: 14px;
-  }
-  .credit-section {
-    bottom: 15px;
-    right: 15px;
-  }
-  .credit-content {
-    max-width: 300px;
-    padding: 12px 16px;
-  }
-} 

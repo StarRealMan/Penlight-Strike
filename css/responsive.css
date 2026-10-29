@@ -1,0 +1,189 @@
+/* One responsive layer: viewport height, safe areas, then width/height breakpoints. */
+:root {
+  --app-height: 100vh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --page-gap: clamp(12px, 2vw, 28px);
+  --cover-size: clamp(160px, 28vh, 280px);
+  --piano-height: min(500px, calc(var(--app-height) - 140px - var(--safe-top) - var(--safe-bottom)));
+}
+@supports (height: 100dvh) { :root { --app-height: 100dvh; --cover-size: clamp(160px, 28dvh, 280px); } }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { width: 100%; height: var(--app-height); }
+button { min-height: 44px; flex-shrink: 0; }
+button:focus-visible, a:focus-visible { outline: 3px solid #7fffff; outline-offset: 3px; }
+#player-page, #song-selection, #tutorial-page, #result-page, .welcome-screen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: var(--app-height);
+}
+#song-selection, #tutorial-page, #result-page, .welcome-screen {
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
+}
+/* Menus can scroll on small screens; only the live playfield captures gestures. */
+#player-page { touch-action: none; }
+
+/* Welcome: credits and start instruction stay in the document flow. */
+.welcome-screen { flex-direction: column; justify-content: flex-start; padding: max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom)) max(16px, var(--safe-left)); }
+.welcome-content { width: 100%; height: auto; flex: 1 0 auto; gap: 16px; padding: 24px 0; }
+.main-center-content { flex: 1 0 auto; min-height: 180px; width: 100%; text-align: center; }
+.game-title { font-size: clamp(28px, 7vw, 64px); overflow-wrap: anywhere; }
+.logo-section { margin-bottom: clamp(16px, 4vh, 48px); }
+.subtitle { font-size: clamp(14px, 2.4vw, 24px); line-height: 1.6; }
+.welcome-message { min-height: 0; }
+.instruction, .loading-section { position: static; margin: 0; text-align: center; }
+.instruction { font-size: clamp(14px, 2vw, 22px); }
+.progress-container { width: min(400px, 85vw); }
+.welcome-animation { position: relative; inset: auto; margin: 0; flex: none; }
+.credit-section { position: static; align-self: flex-end; }
+.credit-content { padding: 0; max-width: 100%; }
+.credit-content td { font-size: clamp(12px, 1.5vw, 16px); }
+
+/* Song selection uses the same measured cover width in CSS and JavaScript. */
+#song-selection { justify-content: flex-start; padding: max(12px, var(--safe-top)) max(12px, var(--safe-right)) max(20px, var(--safe-bottom)) max(12px, var(--safe-left)); }
+.song-selection-header { position: static; width: 100%; padding: 0; flex-shrink: 0; }
+.song-container { flex: 1 0 auto; min-width: 0; }
+.song-display { height: auto; min-width: 0; padding: 12px 0; }
+.song-info { gap: clamp(10px, 1.5vh, 20px); min-width: 0; }
+.song-title { font-size: clamp(22px, 3vw, 40px); max-width: 100%; overflow-wrap: anywhere; }
+.cover-carousel { height: calc(var(--cover-size) + 24px); flex: none; }
+.cover-item, .cover-item.main-cover, .cover-item.side-cover { width: var(--cover-size); height: var(--cover-size); }
+.audio-spectrum { width: var(--cover-size); height: 32px; flex-shrink: 0; }
+.song-details { gap: 4px; max-width: min(92%, 700px); }
+.song-details p { font-size: clamp(14px, 1.6vw, 22px); overflow-wrap: anywhere; }
+.difficulty-buttons { gap: 12px; flex-wrap: wrap; justify-content: center; }
+.difficulty-btn { padding: 10px 18px; font-size: 18px; }
+.interaction-mode-toggle { margin-top: 4px; }
+.preview-toggle-btn { width: 44px; height: 44px; }
+
+/* Tutorial: fixed controls, independently scrollable content. */
+#tutorial-page { overflow: hidden; padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
+.tutorial-header { flex-shrink: 0; padding: 12px var(--page-gap); }
+.tutorial-content { flex: 1 1 0; min-height: 0; padding: 12px var(--page-gap); overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y pinch-zoom; }
+.tutorial-title { flex: 0 0 auto; font-size: clamp(22px, 3vw, 40px); margin: 0 0 16px; }
+.tutorial-main { gap: 24px; flex: 1 0 auto; }
+.tutorial-text, .tutorial-gif { min-width: 0; }
+.tutorial-step p { font-size: clamp(16px, 1.8vw, 22px); }
+/* A sibling of the scrolling content, so pagination always keeps its own row. */
+.tutorial-pagination { flex: 0 0 auto; margin: 0; padding: 8px var(--page-gap); }
+.lang-btn { min-height: 44px; }
+
+/* HUD dimensions use both available width and height, including landscape phones. */
+#header { top: calc(10px + var(--safe-top)); display: flex; gap: 8px; }
+.pause-btn { width: 44px; height: 44px; font-size: 18px; }
+.health-display { top: calc(12px + var(--safe-top)); left: calc(12px + var(--safe-left)); gap: 6px; }
+.health-icon { width: 20px; height: 32px; }
+.score-display { top: calc(10px + var(--safe-top)); right: calc(12px + var(--safe-right)); }
+.score-integrated-container { grid-template-columns: minmax(max-content, clamp(140px, 16vw, 220px)) auto; }
+.score-progress-container { height: 16px; }
+.grade-circle { width: 36px; height: 36px; }
+.grade-display { font-size: 22px; }
+.score-number { font-size: clamp(16px, 2vw, 26px); }
+.score-number-container { padding: 3px 8px; }
+.piano-roll { top: calc(80px + var(--safe-top)); left: calc(12px + var(--safe-left)); height: var(--piano-height); width: calc(var(--piano-height) * 0.254); }
+.piano-img, .piano-effects-layer { width: 100%; height: 100%; }
+.character-display { top: auto; bottom: calc(40px + var(--safe-bottom)); right: var(--safe-right); }
+.character-img { width: min(32vw, calc(var(--app-height) * 0.55), 400px); height: auto; }
+.dialogue-box { top: -40px; padding: 8px 12px; font-size: 14px; }
+.fps-display { left: calc(12px + var(--safe-left)); bottom: calc(8px + var(--safe-bottom)); padding: 4px 8px; min-width: 44px; }
+.fps-number { font-size: 16px; }
+.fps-text { font-size: 10px; }
+.combo-display { right: var(--safe-right); bottom: var(--safe-bottom); }
+.combo-background { width: 110px; height: 80px; }
+.combo-content { top: 20px; left: 25px; }
+.combo-number { font-size: 26px; }
+.combo-text { font-size: 12px; }
+.hit-result-display { top: 20%; }
+.hit-result-text { font-size: clamp(24px, 4vw, 48px); }
+.miku-loading-animation { width: min(250px, 40vw, 45vh); height: min(250px, 40vw, 45vh); }
+.loading-text { font-size: clamp(22px, 4vw, 40px); }
+.modal-content { max-width: calc(100vw - 32px); max-height: calc(var(--app-height) - 32px); overflow-y: auto; padding: 20px; }
+.modal-buttons { min-width: 180px; gap: 12px; }
+.modal-btn { padding: 12px 20px; font-size: 18px; }
+
+/* Results: flexible columns instead of a 470px stats panel plus a 500px image. */
+.result-container { height: auto; min-height: 100%; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--page-gap); padding: max(12px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom)) max(16px, var(--safe-left)); }
+.result-stats { width: auto; min-width: 0; padding: clamp(12px, 2vw, 30px); align-self: center; }
+.result-stats h3 { font-size: clamp(22px, 2.6vw, 36px); margin: 0 0 16px; }
+.stat-item { gap: 12px; margin-bottom: 6px; padding: 6px 0; }
+.stat-label, .stat-value { font-size: clamp(16px, 2vw, 30px); }
+.result-grade { font-size: clamp(72px, 12vw, 150px); margin-bottom: 12px; }
+.result-score { font-size: clamp(22px, 3vw, 36px); margin-bottom: 12px; overflow-wrap: anywhere; }
+.result-achievement { font-size: clamp(16px, 2.5vw, 32px); margin-top: 12px; overflow-wrap: anywhere; }
+.miku-image { width: min(100%, 400px); max-height: 55vh; object-fit: contain; }
+.miku-dialogue { top: 0; padding: 10px; font-size: 14px; }
+
+@media (max-width: 600px) {
+  :root { --cover-size: min(58vw, 220px); }
+  .tutorial-main { flex-direction: column; }
+  .tutorial-text, .tutorial-gif { width: 100%; max-width: 100%; flex: none; }
+  .result-container { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto; }
+  .result-center { grid-column: 1; grid-row: 2; }
+  .result-stats { grid-column: 1; grid-row: 3; }
+  .result-miku { grid-column: 1; grid-row: 4; }
+  .miku-image { width: 200px; }
+  .result-grade { font-size: 80px; }
+  .song-details { text-align: center; }
+  .credit-section { align-self: center; }
+  .health-icon { width: 14px; height: 24px; }
+  .health-display { gap: 3px; }
+  #header { top: calc(50px + var(--safe-top)); }
+  .piano-roll { top: calc(110px + var(--safe-top)); height: calc(var(--piano-height) - 30px); width: calc((var(--piano-height) - 30px) * 0.254); }
+}
+
+/* Wide but short screens need a horizontal menu, not the desktop vertical stack. */
+@media (min-width: 601px) and (max-height: 600px) {
+  :root { --cover-size: clamp(140px, 45vh, 230px); }
+  .song-display { padding: 8px 0; }
+  .song-info { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; row-gap: 10px; }
+  .song-title { grid-column: 1; grid-row: 1; font-size: 24px; }
+  .cover-carousel { grid-column: 1; grid-row: 2 / 5; }
+  .audio-spectrum { grid-column: 1; grid-row: 5; justify-self: center; height: 24px; }
+  .song-details { grid-column: 2; grid-row: 1 / 3; justify-self: center; align-items: center; font-size: 16px; text-align: center; }
+  .difficulty-buttons { grid-column: 2; grid-row: 3; justify-self: center; gap: 8px; }
+  .difficulty-btn { padding: 8px 12px; font-size: 16px; }
+  .interaction-mode-toggle { grid-column: 2; grid-row: 4 / 6; justify-self: center; }
+  .tutorial-main { flex-direction: row; }
+  .tutorial-title { font-size: 24px; }
+  .tutorial-step p { font-size: 16px; }
+  .tutorial-video-container { max-width: 280px; }
+  .main-center-content { min-height: 100px; }
+  .welcome-content { padding: 8px 0; }
+  .welcome-animation { display: none !important; }
+  .logo-section { margin-bottom: 12px; }
+  .title-decoration { display: none; }
+  .subtitle { font-size: 16px; margin-bottom: 6px; }
+  .welcome-message br { display: none; }
+  .credit-content table { border-spacing: 10px 2px; }
+  .result-container { gap: 12px; }
+  .result-stats { padding: 10px; }
+  .result-stats h3 { margin-bottom: 8px; font-size: 22px; }
+  .stat-item { margin-bottom: 2px; padding: 3px 0; }
+  .stat-label, .stat-value { font-size: 18px; }
+  .result-grade { font-size: 72px; }
+  .result-achievement { font-size: 16px; }
+  .result-score { font-size: 24px; }
+  .miku-image { margin-bottom: 8px; }
+}
+@media (max-height: 420px) {
+  .tutorial-header { padding-block: 4px; }
+  .tutorial-back-btn, .page-btn { width: 44px; height: 44px; }
+  .tutorial-pagination { padding-block: 4px; }
+  .tutorial-content { padding-block: 6px; }
+  .tutorial-title { margin-bottom: 8px; }
+  .modal-buttons { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .modal-btn { min-width: 120px; }
+  .score-integrated-container { row-gap: 4px; }
+  .character-img { width: min(25vw, 45vh); }
+  .dialogue-box { display: none !important; }
+}
+@media (pointer: coarse) {
+  *, *::before, *::after { cursor: auto !important; }
+  .cover-item.main-cover:hover { transform: translateX(0) scale(1) !important; }
+}

@@ -4,10 +4,12 @@
 
 @import url('./welcome.css');
 
-@import url('./song-selection.css');
+@import url('./song-selection.css?v=20261029-cover-offset');
 
 @import url('./tutorial.css');
 
-@import url('./player.css'); 
+@import url('./player.css?v=20261028-menu-heatmap');
 
-@import url('./result.css'); 
+@import url('./result.css');
+
+@import url('./responsive.css?v=20261029-tutorial-nav');

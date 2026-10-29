@@ -2,14 +2,13 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Penlight Strike</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css"/>
-    <link rel="stylesheet" href="./css/main.css" />
+    <link rel="stylesheet" href="./css/main.css?v=20261029-cover-offset" />
     <link rel="icon" href="icon/favicon.ico" type="image/x-icon">
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
   <body>
 
@@ -60,7 +59,7 @@
             </tr>
             <tr>
               <td><strong>Developed by:</strong></td>
-              <td>星空StarrySky</td>
+              <td>St@rrySky</td>
             </tr>
           </table>
         </div>
@@ -188,48 +187,48 @@
           </div>
           <div class="tutorial-gif">
             <div class="tutorial-video-container" data-page="1">
-              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+              <video autoplay loop muted playsinline style="width: 100%; height: auto; border-radius: 15px;">
                 <source src="videos/tutorial-0.mp4" type="video/mp4">
               </video>
             </div>
             <div class="tutorial-video-container hidden" data-page="2">
-              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+              <video autoplay loop muted playsinline style="width: 100%; height: auto; border-radius: 15px;">
                 <source src="videos/tutorial-1.mp4" type="video/mp4">
               </video>
             </div>
             <div class="tutorial-video-container hidden" data-page="3">
-              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+              <video autoplay loop muted playsinline style="width: 100%; height: auto; border-radius: 15px;">
                 <source src="videos/tutorial-2.mp4" type="video/mp4">
               </video>
             </div>
             <div class="tutorial-video-container hidden" data-page="4">
-              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+              <video autoplay loop muted playsinline style="width: 100%; height: auto; border-radius: 15px;">
                 <source src="videos/tutorial-3.mp4" type="video/mp4">
               </video>
             </div>
             <div class="tutorial-video-container hidden" data-page="5">
-              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+              <video autoplay loop muted playsinline style="width: 100%; height: auto; border-radius: 15px;">
                 <source src="videos/tutorial-4.mp4" type="video/mp4">
               </video>
             </div>
             <div class="tutorial-video-container hidden" data-page="6">
-              <video autoplay loop muted style="width: 100%; height: auto; border-radius: 15px;">
+              <video autoplay loop muted playsinline style="width: 100%; height: auto; border-radius: 15px;">
                 <source src="videos/tutorial-5.mp4" type="video/mp4">
               </video>
             </div>
           </div>
         </div>
-        <div class="tutorial-pagination">
-          <button id="prev-tutorial" class="page-btn">
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <span class="page-info">
-            <span id="current-page">1</span>/<span id="total-pages">3</span>
-          </span>
-          <button id="next-tutorial" class="page-btn">
-            <i class="fas fa-chevron-right"></i>
-          </button>
-        </div>
+      </div>
+      <div class="tutorial-pagination">
+        <button id="prev-tutorial" class="page-btn" aria-label="Previous tutorial page">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span class="page-info">
+          <span id="current-page">1</span>/<span id="total-pages">6</span>
+        </span>
+        <button id="next-tutorial" class="page-btn" aria-label="Next tutorial page">
+          <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
     </div>
 
@@ -243,15 +242,19 @@
             <img src="images/miku-loading-1.png" class="miku-loading miku-loading-1" alt="Miku Loading">
           </div>
           <p class="loading-text"><span class="fas">&#xf254;</span> &nbsp; now loading &nbsp; ...</p>
+          <div id="loading-error" role="alert" hidden>
+            <p id="loading-error-message"></p>
+            <button id="loading-back-btn" type="button">返回选曲 · Back</button>
+          </div>
         </div>
       </div>
       <div id="header">
-        <button id="pause-btn" class="pause-btn">
+        <button id="pause-btn" class="pause-btn" aria-label="Pause">
           <i class="fas fa-pause"></i>
         </button>
       </div>
       <!-- background video to show shining stars -->
-      <video autoplay loop muted class="page-background-video" id="player-video-background">
+      <video autoplay loop muted playsinline class="page-background-video" id="player-video-background">
         <source src="videos/starrysky.mp4" type="video/mp4">
       </video>
       <!-- pause page to let user to pause and restart game -->
@@ -398,14 +401,16 @@
 
     <!-- script to load external libraries -->
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://unpkg.com/textalive-app-api/dist/index.js"></script>
+    <!-- Pin the original API: the 0.5.3 card resolver currently receives a redirect instead of JSON. -->
+    <script src="https://unpkg.com/textalive-app-api@0.4.0/dist/index.js"></script>
 
-    <script src="./js/welcome.js"></script>
-    <script src="./js/song-selection.js"></script>
-    <script src="./js/tutorial.js"></script>
+    <script src="./js/welcome.js?v=20261028-mobile-entry2"></script>
+    <script src="./js/song-selection.js?v=20261029-cover-offset"></script>
+    <script src="./js/tutorial.js?v=20261029-tutorial-nav"></script>
     <script src="./js/track.js"></script>
-    <script src="./js/player.js"></script>
-    <script src="./js/result.js"></script>
+    <script src="./js/display.js?v=20261028-mobile-entry2"></script>
+    <script src="./js/player.js?v=20261028-mobile-entry2"></script>
+    <script src="./js/result.js?v=20261028-mobile-entry2"></script>
     <script src="./js/main.js"></script>
   </body>
 </html>

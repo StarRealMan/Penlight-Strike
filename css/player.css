@@ -124,6 +124,30 @@
   pointer-events: none;
 }
 
+#overlay.loading-failed .miku-loading-animation,
+#overlay.loading-failed .loading-text,
+#loading-error[hidden] {
+  display: none;
+}
+
+#loading-error {
+  max-width: 32rem;
+  padding: 24px;
+  text-align: center;
+  font-size: clamp(16px, 3vw, 22px);
+}
+
+#loading-back-btn {
+  margin-top: 16px;
+  padding: 12px 24px;
+  border: 1px solid #9af5e6;
+  border-radius: 12px;
+  color: #fff;
+  background: #28546c;
+  font: inherit;
+  cursor: pointer;
+}
+
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -378,21 +402,21 @@
 }
 
 .score-integrated-container {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(max-content, 200px) auto;
+  align-items: center;
+  gap: 6px 8px;
 }
 
 .score-top-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: contents;
 }
 
 .score-progress-container {
   position: relative;
-  left: 18px;
-  width: 200px;
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
   height: 18px;
   background: rgba(0, 0, 0, 0.7);
   border-radius: 12px;
@@ -400,7 +424,6 @@
   border: 4px solid rgb(255 255 255 / 100%);
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  flex: 1;
 }
 
 .score-progress-track {
@@ -442,9 +465,9 @@
 
 .score-mark {
   position: absolute;
-  top: -4px;
+  top: 0;
   width: 2px;
-  height: 26px;
+  height: 100%;
   background: rgba(255, 255, 255, 0.9);
   border-radius: 1px;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
@@ -457,6 +480,8 @@
 .score-mark.grade-s { left: 70%; background: #FFD700; box-shadow: 0 0 8px rgba(255, 215, 0, 0.8); }
 
 .grade-circle {
+  grid-column: 2;
+  grid-row: 1 / 3;
   width: 50px;
   height: 50px;
   border-radius: 50%;
@@ -486,20 +511,20 @@
 }
 
 .score-number-container {
+  grid-column: 1;
+  grid-row: 2;
   background: rgba(0, 0, 0, 0.0);
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-radius: 8px;
   padding: 4px 10px;
-  width: fit-content;
-  text-align: left;
-  align-self: flex-start;
+  width: 100%;
+  text-align: center;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  margin-top: -20px;
-  margin-left: 20px;
+  margin: 0;
 }
 
 .score-number {
@@ -510,6 +535,8 @@
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
   margin: 0;
   letter-spacing: 1px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .grade-circle.grade-f {
@@ -1068,9 +1095,11 @@
 
 /* Heatmap interface styles */
 #heatmap-interface {
-  position: absolute;
-  bottom: 110px; /* Above FPS display */
-  left: 20px;
+  position: fixed;
+  bottom: calc(12px + var(--safe-bottom, 0px));
+  left: calc((100% + var(--safe-left, 0px) - var(--safe-right, 0px)) / 2);
+  transform: translateX(-50%);
+  max-width: calc(100vw - 24px - var(--safe-left, 0px) - var(--safe-right, 0px));
   color: #87CEEB;
   font-family: 'Rubik', sans-serif;
   font-weight: bold;
@@ -1079,7 +1108,7 @@
   border-radius: 8px;
   border: 1px solid rgba(135, 206, 235, 0.5);
   backdrop-filter: blur(4px);
-  transform-origin: bottom left;
+  transform-origin: bottom center;
   transition: all 0.3s ease;
   min-width: 60px;
   pointer-events: auto;
@@ -1115,7 +1144,7 @@
   display: block;
   margin: 8px;
   max-width: 120px;
-  max-height: 120px;
+  max-height: clamp(40px, calc(var(--app-height, 100vh) - 180px), 120px);
   border-radius: 4px;
   border: 1px solid rgba(135, 206, 235, 0.3);
 }
@@ -1568,213 +1597,3 @@
 }
 
 /* responsive design */
-@media (max-width: 768px) {
-  .modal-content {
-    margin: 1rem;
-    padding: 1.5rem;
-  }
-  
-  .modal-buttons {
-    min-width: auto;
-  }
-  
-  .modal-btn {
-    padding: 0.8rem 1.2rem;
-    font-size: 1rem;
-  }
-  
-  #header {
-    top: 10px;
-  }
-  
-  .pause-btn {
-    width: 50px;
-    height: 50px;
-    font-size: 1.2rem;
-  }
-  
-  .character-display {
-    right: -20px;
-    top: 30%;
-  }
-  
-  .character-img {
-    width: 300px;
-    height: auto;
-  }
-  
-  .dialogue-box {
-    top: -50px;
-    max-width: 200px;
-    padding: 12px 16px;
-    font-size: 16px;
-  }
-  
-  .miku-loading-animation {
-    width: 200px;
-    height: 200px;
-  }
-  
-  .loading-text {
-    font-size: 32px;
-  }
-
-  .score-progress-container {
-    width: 150px;
-  }
-  
-  .combo-background {
-    width: 110px;
-    height: 110px;
-    border-radius: 110px 0 0 0;
-  }
-  
-  .combo-background::before {
-    border-radius: 112px 0 0 0;
-  }
-  
-  .combo-content {
-    top: 25px;
-    left: 25px;
-  }
-  
-  .combo-number {
-    font-size: 24px;
-  }
-  
-  .combo-text {
-    font-size: 14px;
-  }
-  .score-display {
-    top: 15px;
-    right: 15px;
-  }
-  
-  .score-integrated-container {
-    gap: 5px;
-  }
-  
-  .score-top-row {
-    gap: 6px;
-  }
-  
-  .score-progress-container {
-    width: 180px;
-    height: 16px;
-  }
-  
-  .grade-circle {
-    width: 38px;
-    height: 38px;
-  }
-  
-  .grade-display {
-    font-size: 24px;
-  }
-  
-  .score-number {
-    font-size: 18px;
-  }
-  
-  .score-number-container {
-    padding: 3px 8px;
-  }
-}
-
-@media (max-width: 480px) {
-  .pause-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 1rem;
-  }
-  
-  .miku-loading-animation {
-    width: 150px;
-    height: 150px;
-  }
-  
-  .loading-text {
-    font-size: 24px;
-    letter-spacing: 1px;
-  }
-  
-  .loading-container {
-    gap: 15px;
-  }
-  
-  .character-display {
-    right: -40px;
-    top: 35%;
-  }
-  
-  .character-img {
-    width: 250px;
-    height: auto;
-  }
-  
-  .dialogue-box {
-    top: -40px;
-    max-width: 180px;
-    padding: 10px 14px;
-    font-size: 14px;
-    border-radius: 15px;
-  }
-  
-  .score-progress-container {
-    width: 120px;
-  }
-  
-  .combo-background {
-    width: 90px;
-    height: 90px;
-    border-radius: 90px 0 0 0;
-    border-width: 2px;
-  }
-  
-  .combo-background::before {
-    border-radius: 92px 0 0 0;
-  }
-  
-  .combo-content {
-    top: 20px;
-    left: 20px;
-  }
-  
-  .combo-number {
-    font-size: 20px;
-  }
-  
-  .combo-text {
-    font-size: 12px;
-  }
-  
-  .score-integrated-container {
-    gap: 4px;
-  }
-  
-  .score-top-row {
-    gap: 5px;
-  }
-  
-  .score-progress-container {
-    width: 150px;
-    height: 14px;
-  }
-  
-  .grade-circle {
-    width: 32px;
-    height: 32px;
-  }
-  
-  .grade-display {
-    font-size: 20px;
-  }
-  
-  .score-number {
-    font-size: 16px;
-  }
-  
-  .score-number-container {
-    padding: 3px 6px;
-  }
-}

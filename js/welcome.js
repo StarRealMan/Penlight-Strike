@@ -4,7 +4,7 @@ function initWelcomePage() {
     const enableAudio = window.SongSelection.enableAudio;
     const welcomePage = document.getElementById('welcome-page');
     
-    preloadResources().then(() => {
+    return preloadResources().then(() => {
         const loadingSection = document.querySelector('.loading-section');
         if (loadingSection) {
             loadingSection.classList.add('hidden');
@@ -27,13 +27,24 @@ function initWelcomePage() {
             }, 50);
         }
         
-        // add click event listeners
-        if (welcomePage) {
-            welcomePage.addEventListener('click', enableAudio);
+        let entered = false;
+        function enterWelcome(event) {
+            if (entered) return;
+            if (event?.type === 'touchend') event.preventDefault();
+            entered = true;
+            welcomePage?.removeEventListener('click', enterWelcome);
+            welcomePage?.removeEventListener('touchend', enterWelcome);
+            document.removeEventListener('keydown', onKeydown);
+            // Fullscreen and audio both need the original user gesture. Do not await either.
+            window.GameDisplay.enter();
+            enableAudio();
         }
-        document.addEventListener('click', enableAudio, { once: true });
-        document.addEventListener('keydown', handleWelcomeKeydown, { once: true });
-        document.addEventListener('touchstart', enableAudio, { once: true });
+        function onKeydown(event) {
+            if (event.key === 'Enter' && !event.repeat) enterWelcome();
+        }
+        welcomePage?.addEventListener('click', enterWelcome);
+        welcomePage?.addEventListener('touchend', enterWelcome, { passive: false });
+        document.addEventListener('keydown', onKeydown);
     });
 }
 
@@ -197,14 +208,6 @@ async function preloadResources() {
     await loadResourcesBatch(resources.images, loadImage, 4);
     await loadResourcesBatch(resources.audio, loadAudio, 3);
     await loadResourcesBatch(resources.video, loadVideo, 3);
-}
-
-function handleWelcomeKeydown(event) {
-    if (event.key === 'Enter' || event.keyCode === 13) {
-        if (window.SongSelection && window.SongSelection.enableAudio) {
-            window.SongSelection.enableAudio();
-        }
-    }
 }
 
 window.Welcome = {

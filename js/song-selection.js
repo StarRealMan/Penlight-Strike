@@ -73,6 +73,8 @@ const songs = [
 // flags and global status variables
 let currentSongIndex = 0;
 let previewAudio = null;
+let previewWanted = false;
+let selectionVisible = true;
 let userHasInteracted = false;
 let isPreviewMuted = false;
 let isAnimating = false;
@@ -94,16 +96,10 @@ function setupCanvasSize() {
   }, 100);
 }
 
-// for responsive cover spacing
-function getCoverSpacing() {
-  const screenWidth = window.innerWidth;
-  if (screenWidth <= 480) {
-    return 200;
-  } else if (screenWidth <= 768) {
-    return 250;
-  } else {
-    return 300;
-  }
+// Percentages follow each cover's live CSS width, even while the page is hidden
+// or the viewport rotates. Never cache a measured pixel width in transforms.
+function getCoverOffset(offset) {
+  return `calc(${offset * 100}% ${offset < 0 ? '-' : '+'} ${Math.abs(offset) * 24}px)`;
 }
 
 // parameters for frequency map
@@ -214,29 +210,39 @@ function stopSpectrum() {
 }
 
 function createAudioElement() {
-  if (previewAudio) {
-    previewAudio.pause();
-    previewAudio = null;
-    source = null;
-  }
-  
-  previewAudio = new Audio();
-  previewAudio.loop = true;
-  previewAudio.volume = 0.8;
-  previewAudio.addEventListener('loadeddata', () => {
-    if (userHasInteracted && !isPreviewMuted) {
-      previewAudio.play();
+  disposePreviewAudio();
+  const audio = new Audio();
+  previewAudio = audio;
+  audio.loop = true;
+  audio.volume = 0.8;
+  const canPlay = () => audio === previewAudio && previewWanted && selectionVisible && userHasInteracted && !isPreviewMuted;
+  audio.addEventListener('loadeddata', () => {
+    if (canPlay()) {
+      const playing = audio.play();
+      playing?.then(() => { if (!canPlay()) audio.pause(); }, () => {});
     }
   });
-  
-  previewAudio.addEventListener('play', () => {
+  audio.addEventListener('play', () => {
+    if (!canPlay()) { audio.pause(); return; }
     initAudioContext();
     connectAudioSource();
+    stopSpectrum();
     drawSpectrum();
   });
-  previewAudio.addEventListener('pause', () => {
-    stopSpectrum();
-  });
+  audio.addEventListener('pause', () => { if (audio === previewAudio) stopSpectrum(); });
+}
+
+function disposePreviewAudio() {
+  stopSpectrum();
+  const audio = previewAudio;
+  previewAudio = null;
+  if (audio) {
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  }
+  source?.disconnect();
+  source = null;
 }
 
 // preview button to stop song preview and turn off the spectrum
@@ -297,7 +303,8 @@ function togglePreviewAudio() {
 }
 
 function playPreview(song) {
-  if (!song.preview || !userHasInteracted) return;
+  if (!song.preview || !userHasInteracted || !selectionVisible || isPreviewMuted) return;
+  previewWanted = true;
   
   createAudioElement();
   previewAudio.src = song.preview;
@@ -316,11 +323,8 @@ function playPreview(song) {
 }
 
 function stopPreview() {
-  if (previewAudio) {
-    previewAudio.pause();
-    previewAudio.currentTime = 0;
-  }
-  
+  previewWanted = false;
+  disposePreviewAudio();
   stopSpectrum();
   const coverContainer = document.getElementById('song-cover-container');
   if (coverContainer) {
@@ -357,6 +361,7 @@ function enableAudioAfterInteraction() {
     const songSelection = document.getElementById('song-selection');
     if (songSelection) {
       songSelection.classList.remove('hidden');
+      refreshCoverLayout();
     }
     
     const currentSong = getCurrentSong();
@@ -481,31 +486,30 @@ function getSongIndexForPosition(position) {
 
 // translate of covers
 function updateCoverPositions() {
-  const spacing = getCoverSpacing();
   coverElements.forEach((cover, index) => {
-    const xPos = (index - currentCenterIndex) * spacing;
+    const xPos = getCoverOffset(index - currentCenterIndex);
     
     if (index === 0 || index === 4) {
-      cover.style.transform = `translateX(${xPos}px) scale(0.8)`;
+      cover.style.transform = `translateX(${xPos}) scale(0.8)`;
       cover.style.opacity = '0';
       cover.style.pointerEvents = 'none';
       cover.style.zIndex = '0';
     } else if (index === 1) {
-      cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+      cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
       cover.style.opacity = '0.7';
       cover.style.pointerEvents = 'auto';
       cover.style.zIndex = '1';
-      cover.style.transition = 'all 0.3s ease';
+      cover.style.transition = 'transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease';
       cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
     } else if (index === 3) {
-      cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+      cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
       cover.style.opacity = '0.7';
       cover.style.pointerEvents = 'auto';
       cover.style.zIndex = '1';
-      cover.style.transition = 'all 0.3s ease';
+      cover.style.transition = 'transform 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease';
       cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
     } else {
-      cover.style.transform = `translateX(${xPos}px) scale(1)`;
+      cover.style.transform = `translateX(${xPos}) scale(1)`;
       cover.style.opacity = '1';
       cover.style.pointerEvents = 'auto';
       cover.style.zIndex = '2';
@@ -558,11 +562,10 @@ function slideToNext() {
     img.src = songs[newSongIndex].cover;
   }
   
-  const spacing = getCoverSpacing();
   newCover.className = 'cover-item side-cover right-cover';
   newCover.setAttribute('data-index', '5');
   newCover.style.position = 'absolute';
-  newCover.style.transform = `translateX(${spacing * 2}px) scale(0.8)`;
+  newCover.style.transform = `translateX(${getCoverOffset(2)}) scale(0.8)`;
   newCover.style.opacity = '0';
   newCover.style.pointerEvents = 'none';
   newCover.style.zIndex = '0';
@@ -574,17 +577,17 @@ function slideToNext() {
   setTimeout(() => {
     coverElements.forEach((cover, index) => {
       const newPos = index - 1;
-      const xPos = (newPos - currentCenterIndex) * spacing;
+      const xPos = getCoverOffset(newPos - currentCenterIndex);
       if (newPos === 0 || newPos === 4 || newPos < 0) {
-        cover.style.transform = `translateX(${xPos}px) scale(0.8)`;
+        cover.style.transform = `translateX(${xPos}) scale(0.8)`;
       } else if (newPos === 1) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
       } else if (newPos === 3) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
       } else if (newPos === 2) {
-        cover.style.transform = `translateX(${xPos}px) scale(1)`;
+        cover.style.transform = `translateX(${xPos}) scale(1)`;
       }
-      cover.style.transition = 'all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)';
+      cover.style.transition = 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.6s ease';
       updateCoverStyleForPosition(cover, newPos);
     });
   }, 50);
@@ -617,11 +620,10 @@ function slideToPrev() {
     img.src = songs[newSongIndex].cover;
   }
   
-  const spacing = getCoverSpacing();
   newCover.className = 'cover-item side-cover left-cover';
   newCover.setAttribute('data-index', '-1');
   newCover.style.position = 'absolute';
-  newCover.style.transform = `translateX(-${spacing * 2}px) scale(0.8)`;
+  newCover.style.transform = `translateX(${getCoverOffset(-2)}) scale(0.8)`;
   newCover.style.opacity = '0';
   newCover.style.pointerEvents = 'none';
   newCover.style.zIndex = '0';
@@ -633,17 +635,17 @@ function slideToPrev() {
   setTimeout(() => {
     coverElements.forEach((cover, index) => {
       const newPos = index + 1;
-      const xPos = (newPos - currentCenterIndex) * spacing;
+      const xPos = getCoverOffset(newPos - currentCenterIndex);
       if (newPos === 0 || newPos === 4 || newPos > 4) {
-        cover.style.transform = `translateX(${xPos}px) scale(0.8)`;
+        cover.style.transform = `translateX(${xPos}) scale(0.8)`;
       } else if (newPos === 1) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
       } else if (newPos === 3) {
-        cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+        cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
       } else if (newPos === 2) {
-        cover.style.transform = `translateX(${xPos}px) scale(1)`;
+        cover.style.transform = `translateX(${xPos}) scale(1)`;
       }
-      cover.style.transition = 'all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)';
+      cover.style.transition = 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.6s ease';
       updateCoverStyleForPosition(cover, newPos);
     });
   }, 50);
@@ -741,23 +743,31 @@ function updateCoverDataIndices() {
   });
 }
 
+function refreshCoverLayout() {
+  if (!coverCarousel || !coverCarousel.offsetWidth || isAnimating) return;
+  updateCoverPositions();
+  setupCanvasSize();
+}
+
 function setupResponsiveListener() {
+  // Refresh the spectrum and cover states when the menu becomes visible or resizes.
+  // Cover offsets themselves resize automatically in CSS.
+  if (window.ResizeObserver) {
+    const observer = new window.ResizeObserver(refreshCoverLayout);
+    observer.observe(coverCarousel);
+  }
   let resizeTimeout;
   
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      if (!isAnimating) {
-        updateCoverPositions();
-      }
+      refreshCoverLayout();
     }, 100);
   });
   
   window.addEventListener('orientationchange', () => {
     setTimeout(() => {
-      if (!isAnimating) {
-        updateCoverPositions();
-      }
+      refreshCoverLayout();
     }, 200);
   });
 }
@@ -797,30 +807,28 @@ function handleCoverLeave(event) {
 }
 
 function applyCoverHoverEffect(cover, index) {
-  const spacing = getCoverSpacing();
-  const xPos = (index - currentCenterIndex) * spacing;
+  const xPos = getCoverOffset(index - currentCenterIndex);
   
   if (index === 1) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.95)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.95)`;
     cover.style.opacity = '0.9';
     cover.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
   } else if (index === 3) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.95)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.95)`;
     cover.style.opacity = '0.9';
     cover.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
   }
 }
 
 function removeCoverHoverEffect(cover, index) {
-  const spacing = getCoverSpacing();
-  const xPos = (index - currentCenterIndex) * spacing;
+  const xPos = getCoverOffset(index - currentCenterIndex);
   
   if (index === 1) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(5deg) scale(0.9)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(5deg) scale(0.9)`;
     cover.style.opacity = '0.7';
     cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
   } else if (index === 3) {
-    cover.style.transform = `translateX(${xPos}px) perspective(400px) rotateY(-5deg) scale(0.9)`;
+    cover.style.transform = `translateX(${xPos}) perspective(400px) rotateY(-5deg) scale(0.9)`;
     cover.style.opacity = '0.7';
     cover.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
   }
@@ -901,9 +909,11 @@ function initSongSelection() {
 }
 
 function showSongSelection() {
+  selectionVisible = true;
   const songSelection = document.getElementById('song-selection');
   songSelection.classList.remove('hidden');
   songSelection.style.display = '';
+  refreshCoverLayout();
   document.getElementById('tutorial-page').classList.add('hidden');
   document.getElementById('player-page').classList.add('hidden'); 
   updatePreviewButton();
@@ -915,6 +925,7 @@ function showSongSelection() {
 }
 
 function hideSongSelection(stopAudio = true) {
+  selectionVisible = false;
   const songSelection = document.getElementById('song-selection');
   songSelection.classList.add('hidden');
   if (stopAudio) {
